@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Acceptera inbjudan - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623', 'gold-light': '#FFF3D6', navy: '#1B2340', 'navy-soft': '#2A3458',
+            sky: '#E8F0FE', lavender: '#EDE7F6', mint: '#E0F5EC', coral: '#FDEAE7', 'text-soft': '#5A6178',
+          },
+          fontFamily: { heading: ['Outfit', 'sans-serif'], body: ['Plus Jakarta Sans', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+  <script src="/js/auth.js"></script>
+</head>
+<body class="bg-sky font-body text-navy min-h-screen flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-8 w-full max-w-md shadow-xl text-center">
+    <div class="text-5xl mb-4">⭐</div>
+    <h1 class="text-2xl font-heading font-bold text-navy mb-2">Familje-inbjudan</h1>
+
+    <div id="loading" class="py-8 text-text-soft">Laddar inbjudan...</div>
+
+    <div id="inviteInfo" class="hidden">
+      <p class="text-text-soft mb-4">Du har blivit inbjuden att gå med i en familj på Min Stjärndag.</p>
+      <div id="inviteChildren" class="bg-sky rounded-xl p-4 mb-4 text-left"></div>
+
+      <div id="loggedInAction" class="hidden">
+        <button id="acceptBtn" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors mb-2">Acceptera inbjudan</button>
+        <div id="acceptMsg" class="text-sm min-h-[1.4em]"></div>
+      </div>
+
+      <div id="notLoggedIn" class="hidden space-y-3">
+        <p class="text-sm text-text-soft">Du behöver ett konto för att acceptera inbjudan.</p>
+        <a href="" id="registerLink" class="block w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors text-center">Skapa konto</a>
+        <a href="" id="loginLink" class="block w-full px-4 py-3 bg-navy hover:bg-navy-soft text-white rounded-xl font-heading font-bold transition-colors text-center">Logga in</a>
+      </div>
+    </div>
+
+    <div id="errorState" class="hidden py-8">
+      <p class="text-red-500 mb-4" id="errorMsg"></p>
+      <a href="/" class="text-gold font-semibold hover:underline">Gå till startsidan</a>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const params = new URLSearchParams(window.location.search);
+      const token = params.get('token');
+
+      if (!token) {
+        showError('Ingen inbjudningstoken hittades');
+        return;
+      }
+
+      try {
+        // Validate invite (this endpoint works without auth in family routes context)
+        const res = await fetch(`/api/family/invite/${token}`);
+        const data = await res.json();
+
+        if (!res.ok) {
+          showError(data.error || 'Ogiltig inbjudan');
+          return;
+        }
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('inviteInfo').classList.remove('hidden');
+
+        // Show children
+        if (data.children && data.children.length > 0) {
+          document.getElementById('inviteChildren').innerHTML =
+            '<p class="text-sm font-semibold text-navy mb-2">Du får åtkomst till:</p>' +
+            data.children.map(c => `<div class="flex items-center gap-2 text-sm py-1">${c.emoji || '⭐'} ${c.name}</div>`).join('');
+        } else {
+          document.getElementById('inviteChildren').classList.add('hidden');
+        }
+
+        // Check if logged in
+        if (Auth.isLoggedIn()) {
+          document.getElementById('loggedInAction').classList.remove('hidden');
+
+          document.getElementById('acceptBtn').addEventListener('click', async () => {
+            const msg = document.getElementById('acceptMsg');
+            try {
+              const acceptRes = await Auth.api('/api/family/accept-invite', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ token }),
+              });
+              const acceptData = await acceptRes.json();
+              if (acceptRes.ok) {
+                msg.textContent = acceptData.message || 'Du har gått med i familjen!';
+                msg.className = 'text-sm text-green-600';
+                setTimeout(() => { window.location.href = '/dashboard'; }, 2000);
+              } else {
+                msg.textContent = acceptData.error || 'Något gick fel';
+                msg.className = 'text-sm text-red-500';
+              }
+            } catch {
+              msg.textContent = 'Nätverksfel';
+              msg.className = 'text-sm text-red-500';
+            }
+          });
+        } else {
+          document.getElementById('notLoggedIn').classList.remove('hidden');
+          document.getElementById('registerLink').href = `/register?invite=${token}`;
+          document.getElementById('loginLink').href = `/login?invite=${token}`;
+        }
+      } catch {
+        showError('Kunde inte ladda inbjudan');
+      }
+    });
+
+    function showError(msg) {
+      document.getElementById('loading').classList.add('hidden');
+      document.getElementById('errorState').classList.remove('hidden');
+      document.getElementById('errorMsg').textContent = msg;
+    }
+  </script>
+</body>
+</html>

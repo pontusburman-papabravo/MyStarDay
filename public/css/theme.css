@@ -1,0 +1,82 @@
+/* Stjärndag Theme CSS — Dark mode and color blindness support */
+
+/* ─── Dark Mode Overrides ───────────────────────────── */
+.dark body {
+  background-color: #0F1629;
+  color: #E2E8F0;
+}
+
+.dark .bg-white {
+  background-color: #1B2340 !important;
+}
+
+.dark .bg-sky {
+  background-color: #1B2340 !important;
+}
+
+.dark .text-navy {
+  color: #E2E8F0 !important;
+}
+
+.dark .text-text-soft {
+  color: #94A3B8 !important;
+}
+
+.dark .border-lavender {
+  border-color: #2A3458 !important;
+}
+
+.dark .border-sky {
+  border-color: #2A3458 !important;
+}
+
+.dark .bg-navy {
+  background-color: #0F1629 !important;
+}
+
+.dark input,
+.dark select,
+.dark textarea {
+  background-color: #1E293B !important;
+  color: #E2E8F0 !important;
+  border-color: #334155 !important;
+}
+
+.dark input:focus,
+.dark select:focus,
+.dark textarea:focus {
+  border-color: #F5A623 !important;
+}
+
+.dark .bg-coral {
+  background-color: #3B1F1F !important;
+}
+
+.dark .bg-mint {
+  background-color: #1A332B !important;
+}
+
+.dark .bg-lavender {
+  background-color: #2D2554 !important;
+}
+
+.dark .bg-gold-light {
+  background-color: #3D2E0F !important;
+}
+
+/* ─── Color Blindness Filters ───────────────────────── */
+
+/* Protanopia (red-blind) */
+.cb-protanopia {
+  filter: url('#protanopia-filter');
+}
+
+/* Deuteranopia (green-blind) */
+.cb-deuteranopia {
+  filter: url('#deuteranopia-filter');
+}
+
+/* Tritanopia (blue-blind) */
+.cb-tritanopia {
+  filter: url('#tritanopia-filter');
+}

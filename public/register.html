@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skapa konto - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623',
+            'gold-light': '#FFF3D6',
+            navy: '#1B2340',
+            'navy-soft': '#2A3458',
+            sky: '#E8F0FE',
+            lavender: '#EDE7F6',
+            mint: '#E0F5EC',
+            coral: '#FDEAE7',
+            'text-soft': '#5A6178',
+          },
+          fontFamily: {
+            heading: ['Outfit', 'sans-serif'],
+            body: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/theme.css">
+  <script src="/js/theme.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/i18n.js"></script>
+</head>
+<body class="bg-white font-body text-navy dark:bg-navy dark:text-white">
+  <div class="min-h-screen flex items-center justify-center px-4 py-8">
+    <div class="w-full max-w-md">
+      <!-- Header with Logo -->
+      <div class="text-center mb-8">
+        <a href="/" class="inline-flex items-center justify-center gap-2 hover:opacity-80 transition-opacity">
+          <div class="w-12 h-12 bg-gold rounded-full flex items-center justify-center shadow-md">
+            <span class="text-2xl">⭐</span>
+          </div>
+          <h1 class="text-3xl font-heading font-bold text-navy">Min Stjärndag</h1>
+        </a>
+        <p class="text-text-soft mt-2" data-i18n="auth.register.subtitle">Skapa ett föräldrakonto</p>
+      </div>
+
+      <!-- Form Card -->
+      <div id="formCard" class="bg-sky rounded-2xl p-8 shadow-sm">
+        <!-- Loading state (shown while validating invite) -->
+        <div id="loadingState" class="text-center py-8">
+          <p class="text-4xl mb-3">⏳</p>
+          <p class="text-text-soft">Validerar inbjudan...</p>
+        </div>
+
+        <!-- Error state (shown for invalid invite) -->
+        <div id="errorState" class="hidden space-y-4">
+          <div class="bg-coral border-l-4 border-red-500 p-4 rounded">
+            <p class="text-sm text-navy font-medium" id="inviteErrorText">Ogiltig inbjudningslänk.</p>
+          </div>
+          <div class="text-center">
+            <a href="/login" class="text-gold font-semibold hover:underline">Tillbaka till inloggning</a>
+          </div>
+        </div>
+
+        <!-- Registration form (hidden until invite validated) -->
+        <form id="registerForm" class="hidden space-y-6">
+          <!-- Name Field -->
+          <div>
+            <label for="name" class="block text-sm font-semibold text-navy mb-2">
+              Ditt namn
+            </label>
+            <input
+              type="text"
+              id="name"
+              name="name"
+              placeholder="T.ex. Anna"
+              required
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+          </div>
+
+          <!-- Email Field -->
+          <div>
+            <label for="email" class="block text-sm font-semibold text-navy mb-2" data-i18n="auth.register.email_label">
+              E-postadress
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="din@epost.se"
+              required
+              data-i18n-placeholder="auth.register.email_placeholder"
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+            <p class="text-xs text-text-soft mt-1" data-i18n="auth.register.email_help">Vi skickar en verifieringslänk hit</p>
+          </div>
+
+          <!-- Family Name Field (auto-generated, editable) -->
+          <div>
+            <label for="familyName" class="block text-sm font-semibold text-navy mb-2">
+              Familjenamn
+            </label>
+            <input
+              type="text"
+              id="familyName"
+              name="familyName"
+              placeholder="T.ex. Familjen Svensson"
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+            <p id="familyNameHint" class="text-xs text-text-soft mt-1">Auto-genereras från ditt namn</p>
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <label for="password" class="block text-sm font-semibold text-navy mb-2" data-i18n="auth.register.password_label">
+              Lösenord
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Minst 8 tecken"
+              required
+              minlength="8"
+              data-i18n-placeholder="auth.register.password_placeholder"
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+            <p class="text-xs text-text-soft mt-1" data-i18n="auth.register.password_help">Måste vara minst 8 tecken långt</p>
+          </div>
+
+          <!-- Confirm Password Field -->
+          <div>
+            <label for="confirmPassword" class="block text-sm font-semibold text-navy mb-2" data-i18n="auth.register.confirm_label">
+              Bekräfta lösenord
+            </label>
+            <input
+              type="password"
+              id="confirmPassword"
+              name="confirmPassword"
+              placeholder="Upprepa lösenord"
+              required
+              data-i18n-placeholder="auth.register.confirm_placeholder"
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+          </div>
+
+          <!-- Error Message -->
+          <div id="registerError" class="hidden bg-coral border-l-4 border-red-500 p-4 rounded">
+            <p id="registerErrorText" class="text-sm text-navy font-medium"></p>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            id="submitBtn"
+            class="w-full bg-gold hover:bg-yellow-500 text-white font-semibold py-3 rounded-lg transition-colors duration-200"
+            data-i18n="auth.register.submit"
+          >
+            Skapa konto
+          </button>
+        </form>
+
+        <!-- Success Message (hidden by default) -->
+        <div id="registerSuccess" class="hidden space-y-4">
+          <div class="bg-mint border-l-4 border-green-500 p-4 rounded">
+            <p class="text-sm text-navy font-medium" data-i18n="auth.register.success_title">Konto skapat!</p>
+            <p class="text-sm text-navy mt-2" data-i18n="auth.register.success_message">
+              Ditt konto är redo! Du kan logga in direkt.
+            </p>
+          </div>
+          <div class="text-center pt-4">
+            <a href="/login" class="text-gold font-semibold hover:underline" data-i18n="auth.register.back_to_login">
+              Tillbaka till inloggning
+            </a>
+          </div>
+        </div>
+
+        <!-- Back to Login Link -->
+        <div id="loginLink" class="hidden text-center mt-6">
+          <p class="text-text-soft text-sm" data-i18n="auth.register.have_account">
+            Har du redan ett konto?
+            <a href="/login" class="text-gold font-semibold hover:underline" data-i18n="auth.register.login_link">
+              Logga in här
+            </a>
+          </p>
+        </div>
+      </div>
+
+      <!-- Tagline -->
+      <div class="text-center mt-8">
+        <p class="text-text-soft text-sm" data-i18n="auth.register.tagline">
+          En lugn dag, en stjärna i taget
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Check if already logged in
+      if (Auth.isLoggedIn()) {
+        Auth.redirectToDashboard();
+        return;
+      }
+
+      // Check if invite token is present or if open registration is allowed
+      const params = new URLSearchParams(window.location.search);
+      const inviteToken = params.get('invite');
+
+      if (inviteToken) {
+        // Invite-based registration — validate token first
+        try {
+          const res = await fetch(`/api/family/invite/${encodeURIComponent(inviteToken)}`);
+          if (!res.ok) {
+            const data = await res.json().catch(() => ({}));
+            document.getElementById('loadingState').classList.add('hidden');
+            document.getElementById('inviteErrorText').textContent =
+              data.error || 'Ogiltig eller utgången inbjudningslänk. Kontakta den som bjöd in dig.';
+            document.getElementById('errorState').classList.remove('hidden');
+            return;
+          }
+          const inviteData = await res.json();
+          document.getElementById('loadingState').classList.add('hidden');
+          document.getElementById('registerForm').classList.remove('hidden');
+          document.getElementById('loginLink').classList.remove('hidden');
+
+          // Pre-fill and lock email if invite specifies it
+          if (inviteData.email) {
+            const emailField = document.getElementById('email');
+            emailField.value = inviteData.email;
+            emailField.readOnly = true;
+            emailField.classList.add('bg-gray-50', 'text-text-soft');
+          }
+        } catch {
+          document.getElementById('loadingState').classList.add('hidden');
+          document.getElementById('inviteErrorText').textContent = 'Kunde inte validera inbjudningslänken. Försök igen.';
+          document.getElementById('errorState').classList.remove('hidden');
+          return;
+        }
+      } else {
+        // No invite — check if open registration is enabled
+        try {
+          const res = await fetch('/api/registration-status');
+          const data = await res.json();
+          if (!data.registration_enabled) {
+            window.location.href = '/login?reason=registration_closed';
+            return;
+          }
+          // Open registration allowed — show form directly
+          document.getElementById('loadingState').classList.add('hidden');
+          document.getElementById('registerForm').classList.remove('hidden');
+          document.getElementById('loginLink').classList.remove('hidden');
+        } catch {
+          window.location.href = '/login';
+          return;
+        }
+      }
+
+      const form = document.getElementById('registerForm');
+      const submitBtn = document.getElementById('submitBtn');
+      const nameInput = document.getElementById('name');
+      const email = document.getElementById('email');
+      const familyName = document.getElementById('familyName');
+      const familyNameHint = document.getElementById('familyNameHint');
+      const password = document.getElementById('password');
+      const confirmPassword = document.getElementById('confirmPassword');
+      const successDiv = document.getElementById('registerSuccess');
+      const loginLink = document.getElementById('loginLink');
+
+      // Track whether family name has been manually edited
+      let familyNameEdited = false;
+
+      // Auto-generate family name from parent name
+      function updateFamilyName() {
+        const nameVal = nameInput.value.trim();
+        if (nameVal && !familyNameEdited) {
+          familyName.value = nameVal + 's familj';
+          familyNameHint.textContent = 'Auto-genererat — ändra om du vill';
+        }
+      }
+
+      nameInput.addEventListener('input', () => {
+        updateFamilyName();
+      });
+
+      familyName.addEventListener('input', () => {
+        familyNameEdited = true;
+        const val = familyName.value.trim();
+        if (!val) {
+          familyNameHint.textContent = 'Auto-genereras från ditt namn';
+          familyNameEdited = false;
+          updateFamilyName();
+        } else {
+          familyNameHint.textContent = 'Redigerat';
+        }
+      });
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Client-side validation
+        if (!nameInput.value.trim()) {
+          showError('registerError', 'Vänligen ange ditt namn');
+          return;
+        }
+
+        if (!email.value) {
+          showError('registerError', 'Vänligen ange din e-postadress');
+          return;
+        }
+
+        // Basic email format validation
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (!emailRegex.test(email.value)) {
+          showError('registerError', 'Vänligen ange en giltig e-postadress');
+          return;
+        }
+
+        if (password.value.length < 8) {
+          showError('registerError', 'Lösenordet måste vara minst 8 tecken långt');
+          return;
+        }
+
+        if (password.value !== confirmPassword.value) {
+          showError('registerError', 'Lösenorden matchar inte');
+          return;
+        }
+
+        hideError('registerError');
+        setLoading(submitBtn, true);
+
+        try {
+          await Auth.api('/api/auth/register', {
+            method: 'POST',
+            body: JSON.stringify({
+              name: nameInput.value.trim(),
+              email: email.value,
+              family_name: familyName.value.trim(),
+              password: password.value,
+            }),
+          });
+
+          // Show success message — hide the form itself, not the parent card
+          form.classList.add('hidden');
+          loginLink.classList.add('hidden');
+          successDiv.classList.remove('hidden');
+        } catch (error) {
+          showError('registerError', error.message || 'Något gick fel. Vänligen försök igen.');
+        } finally {
+          setLoading(submitBtn, false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,341 @@
+/**
+ * Rewards and redemption routes.
+ *
+ * Parent routes:
+ *   GET    /api/rewards               — list family rewards
+ *   POST   /api/rewards               — create reward
+ *   PUT    /api/rewards/:id           — update reward
+ *   DELETE /api/rewards/:id           — delete reward
+ *   GET    /api/rewards/redemptions   — list all redemptions for family (for parent approval view)
+ *   PUT    /api/rewards/redemptions/:id/approve  — approve pending redemption
+ *   PUT    /api/rewards/redemptions/:id/deny     — deny pending redemption
+ *
+ * Child routes (requires child auth):
+ *   GET    /api/me/rewards            — list available rewards + star balance + pending redemptions
+ *   POST   /api/me/rewards/:id/redeem — redeem a reward
+ */
+
+const express = require('express');
+const db = require('../lib/db');
+const { requireParent, requireChild } = require('../middleware/auth');
+
+const router = express.Router();
+
+// ─── Helper: get child's current star balance ────────────
+async function getStarBalance(childId) {
+  const result = await db.query(
+    `SELECT
+       COALESCE(SUM(CASE WHEN dli.completed THEN wsi.star_value ELSE 0 END), 0) AS earned,
+       COALESCE((
+         SELECT SUM(r.star_cost)
+         FROM reward_redemption rr
+         JOIN reward r ON r.id = rr.reward_id
+         WHERE rr.child_id = $1 AND rr.status IN ('approved', 'auto')
+       ), 0) AS spent
+     FROM daily_log_item dli
+     JOIN daily_log dl ON dl.id = dli.daily_log_id
+     JOIN weekly_schedule_item wsi ON wsi.id = dli.weekly_schedule_item_id
+     WHERE dl.child_id = $1`,
+    [childId]
+  );
+  const row = result.rows[0];
+  return parseInt(row.earned, 10) - parseInt(row.spent, 10);
+}
+
+// ─── Parent: list rewards ────────────────────────────────
+router.get('/', requireParent, async (req, res) => {
+  try {
+    const result = await db.query(
+      'SELECT id, name, icon, star_cost, requires_approval FROM reward WHERE family_id = $1 ORDER BY star_cost ASC',
+      [req.user.familyId]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[REWARDS] List error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Parent: create reward ───────────────────────────────
+router.post('/', requireParent, async (req, res) => {
+  try {
+    const { name, icon, star_cost, requires_approval } = req.body;
+    if (!name || !star_cost) {
+      return res.status(400).json({ error: 'Namn och stjärnkostnad krävs' });
+    }
+    const cost = parseInt(star_cost, 10);
+    if (isNaN(cost) || cost < 1) {
+      return res.status(400).json({ error: 'Stjärnkostnad måste vara minst 1' });
+    }
+
+    const result = await db.query(
+      `INSERT INTO reward (family_id, name, icon, star_cost, requires_approval)
+       VALUES ($1, $2, $3, $4, $5)
+       RETURNING id, name, icon, star_cost, requires_approval`,
+      [req.user.familyId, name.trim(), icon || '🎁', cost, requires_approval === true]
+    );
+
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error('[REWARDS] Create error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Parent: update reward ───────────────────────────────
+router.put('/:id', requireParent, async (req, res) => {
+  try {
+    const { name, icon, star_cost, requires_approval } = req.body;
+
+    // Verify reward belongs to this family
+    const existing = await db.query(
+      'SELECT id FROM reward WHERE id = $1 AND family_id = $2',
+      [req.params.id, req.user.familyId]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Belöning hittades inte' });
+    }
+
+    const updates = [];
+    const values = [];
+    let idx = 1;
+
+    if (name !== undefined) { updates.push(`name = $${idx++}`); values.push(name.trim()); }
+    if (icon !== undefined) { updates.push(`icon = $${idx++}`); values.push(icon); }
+    if (star_cost !== undefined) {
+      const cost = parseInt(star_cost, 10);
+      if (isNaN(cost) || cost < 1) return res.status(400).json({ error: 'Stjärnkostnad måste vara minst 1' });
+      updates.push(`star_cost = $${idx++}`); values.push(cost);
+    }
+    if (requires_approval !== undefined) { updates.push(`requires_approval = $${idx++}`); values.push(!!requires_approval); }
+
+    if (updates.length === 0) return res.status(400).json({ error: 'Inget att uppdatera' });
+
+    values.push(req.params.id);
+    const result = await db.query(
+      `UPDATE reward SET ${updates.join(', ')} WHERE id = $${idx}
+       RETURNING id, name, icon, star_cost, requires_approval`,
+      values
+    );
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error('[REWARDS] Update error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Parent: delete reward ───────────────────────────────
+router.delete('/:id', requireParent, async (req, res) => {
+  try {
+    const existing = await db.query(
+      'SELECT id FROM reward WHERE id = $1 AND family_id = $2',
+      [req.params.id, req.user.familyId]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ error: 'Belöning hittades inte' });
+    }
+
+    await db.query('DELETE FROM reward WHERE id = $1', [req.params.id]);
+    res.json({ message: 'Belöning borttagen' });
+  } catch (err) {
+    console.error('[REWARDS] Delete error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Parent: list all redemptions ───────────────────────
+router.get('/redemptions', requireParent, async (req, res) => {
+  try {
+    const result = await db.query(
+      `SELECT rr.id, rr.status, rr.created_at, rr.approved_by,
+              r.name AS reward_name, r.icon AS reward_icon, r.star_cost,
+              c.name AS child_name, c.emoji AS child_emoji, c.id AS child_id
+       FROM reward_redemption rr
+       JOIN reward r ON r.id = rr.reward_id
+       JOIN child c ON c.id = rr.child_id
+       JOIN parent_child pc ON pc.child_id = c.id
+       WHERE pc.parent_id = $1
+       ORDER BY rr.created_at DESC
+       LIMIT 100`,
+      [req.user.id]
+    );
+    res.json(result.rows);
+  } catch (err) {
+    console.error('[REWARDS] Redemptions list error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Parent: approve redemption ──────────────────────────
+router.put('/redemptions/:id/approve', requireParent, async (req, res) => {
+  try {
+    // Verify parent has access to this child
+    const rr = await db.query(
+      `SELECT rr.id, rr.status, rr.child_id, r.star_cost, r.name AS reward_name
+       FROM reward_redemption rr
+       JOIN reward r ON r.id = rr.reward_id
+       JOIN parent_child pc ON pc.child_id = rr.child_id
+       WHERE rr.id = $1 AND pc.parent_id = $2`,
+      [req.params.id, req.user.id]
+    );
+
+    if (rr.rows.length === 0) {
+      return res.status(404).json({ error: 'Inlösen hittades inte' });
+    }
+
+    const redemption = rr.rows[0];
+    if (redemption.status !== 'pending') {
+      return res.status(400).json({ error: 'Kan bara godkänna väntande inlösen' });
+    }
+
+    await db.query(
+      `UPDATE reward_redemption SET status = 'approved', approved_by = $1 WHERE id = $2`,
+      [req.user.id, req.params.id]
+    );
+
+    res.json({ message: `Inlösen av "${redemption.reward_name}" godkänd!` });
+  } catch (err) {
+    console.error('[REWARDS] Approve error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Parent: deny redemption ─────────────────────────────
+router.put('/redemptions/:id/deny', requireParent, async (req, res) => {
+  try {
+    const rr = await db.query(
+      `SELECT rr.id, rr.status, rr.child_id, r.star_cost, r.name AS reward_name
+       FROM reward_redemption rr
+       JOIN reward r ON r.id = rr.reward_id
+       JOIN parent_child pc ON pc.child_id = rr.child_id
+       WHERE rr.id = $1 AND pc.parent_id = $2`,
+      [req.params.id, req.user.id]
+    );
+
+    if (rr.rows.length === 0) {
+      return res.status(404).json({ error: 'Inlösen hittades inte' });
+    }
+
+    const redemption = rr.rows[0];
+    if (redemption.status !== 'pending') {
+      return res.status(400).json({ error: 'Kan bara neka väntande inlösen' });
+    }
+
+    await db.query(
+      `UPDATE reward_redemption SET status = 'denied' WHERE id = $1`,
+      [req.params.id]
+    );
+
+    res.json({ message: `Inlösen av "${redemption.reward_name}" nekad. Stjärnorna återlämnas.` });
+  } catch (err) {
+    console.error('[REWARDS] Deny error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Child: list rewards + balance + redemptions ─────────
+router.get('/me', requireChild, async (req, res) => {
+  try {
+    const childId = req.user.id;
+
+    // Get family_id for the child
+    const childResult = await db.query('SELECT family_id FROM child WHERE id = $1', [childId]);
+    if (childResult.rows.length === 0) return res.status(404).json({ error: 'Barn hittades inte' });
+    const familyId = childResult.rows[0].family_id;
+
+    // Get rewards
+    const rewards = await db.query(
+      'SELECT id, name, icon, star_cost, requires_approval FROM reward WHERE family_id = $1 ORDER BY star_cost ASC',
+      [familyId]
+    );
+
+    // Get star balance
+    const balance = await getStarBalance(childId);
+
+    // Get pending/recent redemptions
+    const redemptions = await db.query(
+      `SELECT rr.id, rr.status, rr.created_at,
+              r.name AS reward_name, r.icon AS reward_icon, r.star_cost
+       FROM reward_redemption rr
+       JOIN reward r ON r.id = rr.reward_id
+       WHERE rr.child_id = $1
+       ORDER BY rr.created_at DESC
+       LIMIT 20`,
+      [childId]
+    );
+
+    res.json({
+      rewards: rewards.rows,
+      starBalance: balance,
+      redemptions: redemptions.rows,
+    });
+  } catch (err) {
+    console.error('[REWARDS] Child list error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+// ─── Child: redeem a reward ──────────────────────────────
+router.post('/me/:id/redeem', requireChild, async (req, res) => {
+  try {
+    const childId = req.user.id;
+    const rewardId = req.params.id;
+
+    // Get reward — verify it belongs to child's family
+    const childResult = await db.query('SELECT family_id FROM child WHERE id = $1', [childId]);
+    if (childResult.rows.length === 0) return res.status(404).json({ error: 'Barn hittades inte' });
+    const familyId = childResult.rows[0].family_id;
+
+    const rewardResult = await db.query(
+      'SELECT id, name, icon, star_cost, requires_approval FROM reward WHERE id = $1 AND family_id = $2',
+      [rewardId, familyId]
+    );
+    if (rewardResult.rows.length === 0) {
+      return res.status(404).json({ error: 'Belöning hittades inte' });
+    }
+    const reward = rewardResult.rows[0];
+
+    // Check star balance
+    const balance = await getStarBalance(childId);
+    if (balance < reward.star_cost) {
+      return res.status(400).json({
+        error: `Du har ${balance} stjärnor men behöver ${reward.star_cost} för "${reward.name}"`,
+      });
+    }
+
+    // Check for already-pending redemption of same reward
+    const existingPending = await db.query(
+      `SELECT id FROM reward_redemption WHERE child_id = $1 AND reward_id = $2 AND status = 'pending'`,
+      [childId, rewardId]
+    );
+    if (existingPending.rows.length > 0) {
+      return res.status(409).json({ error: 'Du har redan en väntande inlösen för den här belöningen' });
+    }
+
+    // Determine status: auto-approve if no approval required, otherwise pending
+    const status = reward.requires_approval ? 'pending' : 'auto';
+
+    const result = await db.query(
+      `INSERT INTO reward_redemption (reward_id, child_id, status)
+       VALUES ($1, $2, $3)
+       RETURNING id, status`,
+      [rewardId, childId, status]
+    );
+
+    const message = reward.requires_approval
+      ? `Inlösen av "${reward.name}" skickad! Väntar på föräldrarnas godkännande. ⏳`
+      : `"${reward.name}" löst in! 🎉`;
+
+    res.status(201).json({
+      message,
+      redemption: result.rows[0],
+      requiresApproval: reward.requires_approval,
+    });
+  } catch (err) {
+    console.error('[REWARDS] Redeem error:', err);
+    res.status(500).json({ error: 'Något gick fel. Försök igen senare.' });
+  }
+});
+
+module.exports = router;

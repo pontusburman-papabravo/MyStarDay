@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inställningar - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623', 'gold-light': '#FFF3D6', navy: '#1B2340', 'navy-soft': '#2A3458',
+            sky: '#E8F0FE', lavender: '#EDE7F6', mint: '#E0F5EC', coral: '#FDEAE7', 'text-soft': '#5A6178',
+          },
+          fontFamily: { heading: ['Outfit', 'sans-serif'], body: ['Plus Jakarta Sans', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/theme.css">
+  <script src="/js/theme.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/i18n.js"></script>
+  <style>
+    /* WCAG 2.5.8: minimum 44×44px touch target for all checkboxes */
+    .checkbox-touch { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+    .checkbox-touch input[type="checkbox"] { width: 44px; height: 44px; margin: 0; cursor: pointer; accent-color: #F5A623; flex-shrink: 0; }
+    .checkbox-touch label { cursor: pointer; flex: 1; }
+    /* Sidebar nav items: min 44px height for touch */
+    .sidebar-nav-item { display: block; padding: 10px 16px; min-height: 44px; }
+  </style>
+</head>
+<body class="bg-white font-body text-navy dark:bg-navy dark:text-white">
+  <div class="min-h-screen flex flex-col md:flex-row">
+    <!-- Sidebar -->
+    <nav class="w-full md:w-64 bg-navy text-white p-4 md:p-6 md:min-h-screen">
+      <div class="flex items-center gap-3 mb-8">
+        <span class="text-2xl">⭐</span>
+        <h1 class="text-xl font-heading font-bold">Min Stjärndag</h1>
+      </div>
+      <ul class="space-y-2">
+        <li><a href="/dashboard" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Min panel</a></li>
+        <li><a href="/family" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Familj</a></li>
+        <li><a href="/daily-log" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Daglig logg</a></li>
+        <li><a href="/activities" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Aktiviteter</a></li>
+        <li><a href="/schedule" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Veckoschema</a></li>
+        <li><a href="/settings" class="block px-4 py-3 rounded-lg bg-gold text-navy font-semibold">Inställningar</a></li>
+      </ul>
+      <div class="mt-8 pt-4 border-t border-navy-soft space-y-2">
+        <button onclick="toggleDarkMode()" class="w-full px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors text-left flex items-center gap-2">
+          <span>🌙</span> Mörkt läge
+        </button>
+        <button onclick="openFeedbackModal()" class="w-full px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors text-left flex items-center gap-2">
+          <span>💬</span> Ge feedback
+        </button>
+        <button id="logoutBtn" class="w-full px-4 py-2 bg-coral hover:bg-red-200 text-navy rounded-lg font-semibold transition-colors">Logga ut</button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col">
+      <div class="bg-sky border-b border-lavender p-4 md:p-6">
+        <h2 class="text-xl font-heading font-bold text-navy">Inställningar</h2>
+      </div>
+
+      <div class="flex-1 p-4 md:p-8 overflow-auto space-y-8 max-w-2xl">
+
+        <!-- Family Settings -->
+        <section>
+          <h3 class="text-xl font-heading font-bold text-navy mb-4">Familjeinställningar</h3>
+          <form id="familyForm" class="space-y-4">
+            <input type="hidden" id="parentName">
+            <div>
+              <label class="block text-sm font-semibold text-navy mb-1">Familjenamn</label>
+              <input type="text" id="familyName" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors" placeholder="T.ex. Familjen Svensson">
+            </div>
+            <label for="soundEnabled" class="checkbox-touch text-sm font-semibold text-navy">
+              <input type="checkbox" id="soundEnabled">
+              <span>Ljud på</span>
+            </label>
+
+            <button type="submit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">Spara familjeinställningar</button>
+            <div id="familyMsg" class="text-sm min-h-[1.4em]"></div>
+          </form>
+        </section>
+
+        <hr class="border-lavender">
+
+        <!-- Invite Parent — admin only; regular parents use "Lägg till vuxen" on /family -->
+        <section id="inviteSection">
+          <h3 class="text-xl font-heading font-bold text-navy mb-4">Bjud in förälder</h3>
+          <div id="inviteAdminArea" class="hidden">
+            <p class="text-sm text-text-soft mb-4">Bjud in en annan förälder att se och hantera barnens scheman. Inbjudan gäller i 7 dagar.</p>
+            <form id="inviteForm" class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-navy mb-1">E-postadress</label>
+                <input type="email" id="inviteEmail" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors" placeholder="foralderns@epost.se">
+              </div>
+              <div id="inviteChildrenList" class="space-y-2"></div>
+              <button type="submit" class="w-full px-4 py-3 bg-navy hover:bg-navy-soft text-white rounded-xl font-heading font-bold transition-colors">Skicka inbjudan</button>
+              <div id="inviteMsg" class="text-sm min-h-[1.4em]"></div>
+            </form>
+            <div id="pendingInvites" class="mt-4 space-y-2"></div>
+          </div>
+          <div id="inviteRegularUser" class="bg-sky rounded-xl p-4">
+            <p class="text-sm text-text-soft">För att lägga till en annan vuxen i din familj, gå till <a href="/family" class="text-gold font-semibold hover:underline">Familj</a> och klicka på "Lägg till vuxen".</p>
+          </div>
+        </section>
+
+        <hr class="border-lavender">
+
+        <!-- Password Change -->
+        <section>
+          <h3 class="text-xl font-heading font-bold text-navy mb-4">Byt lösenord</h3>
+          <form id="passwordForm" class="space-y-4">
+            <div>
+              <label class="block text-sm font-semibold text-navy mb-1">Nuvarande lösenord</label>
+              <input type="password" id="currentPw" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-navy mb-1">Nytt lösenord</label>
+              <input type="password" id="newPw" required minlength="8" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+            </div>
+            <div>
+              <label class="block text-sm font-semibold text-navy mb-1">Bekräfta nytt lösenord</label>
+              <input type="password" id="confirmPw" required minlength="8" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+            </div>
+            <button type="submit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">Byt lösenord</button>
+            <div id="pwMsg" class="text-sm min-h-[1.4em]"></div>
+          </form>
+        </section>
+
+        <hr class="border-lavender">
+
+        <!-- Notifications -->
+        <section>
+          <h3 class="text-xl font-heading font-bold text-navy mb-4">Notis-inställningar</h3>
+          <form id="notifForm" class="space-y-4">
+            <label for="weeklySummary" class="checkbox-touch text-sm text-navy">
+              <input type="checkbox" id="weeklySummary" checked>
+              <span>Veckosammanfattning (söndag 21:00)</span>
+            </label>
+            <label for="rewardRedemption" class="checkbox-touch text-sm text-navy">
+              <input type="checkbox" id="rewardRedemption" checked>
+              <span>Belöningsinlösen</span>
+            </label>
+            <label for="emailEnabled" class="checkbox-touch text-sm text-navy">
+              <input type="checkbox" id="emailEnabled" checked>
+              <span>Alla mejl globalt</span>
+            </label>
+            <button type="submit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">Spara notis-inställningar</button>
+            <div id="notifMsg" class="text-sm min-h-[1.4em]"></div>
+          </form>
+        </section>
+
+        <hr class="border-lavender">
+
+        <!-- Account Deletion -->
+        <section id="deletionSection">
+          <h3 class="text-xl font-heading font-bold text-navy mb-2">Radera konto</h3>
+
+          <!-- Not pending deletion -->
+          <div id="deletionActive">
+            <div class="bg-coral rounded-xl p-4 mb-4">
+              <p class="text-sm text-navy">Alla dina data — familj, barn, scheman och stjärnor — raderas permanent efter 30 dagar. Du kan ångra dig inom denna period.</p>
+            </div>
+            <button id="deleteAccountBtn" class="w-full px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-heading font-bold transition-colors">Radera mitt konto</button>
+            <div id="deletionMsg" class="text-sm min-h-[1.4em] mt-2"></div>
+          </div>
+
+          <!-- Pending deletion -->
+          <div id="deletionPending" class="hidden">
+            <div class="bg-red-50 border-2 border-red-200 rounded-xl p-4 mb-4">
+              <p class="text-sm font-semibold text-red-700 mb-1">Ditt konto är markerat för radering.</p>
+              <p class="text-sm text-red-600" id="daysRemainingText"></p>
+              <p class="text-sm text-red-600 mt-1">Du kan logga in och klicka "Ångra radering" nedan för att avbryta.</p>
+            </div>
+            <button id="cancelDeletionBtn" class="w-full px-4 py-3 bg-green-500 hover:bg-green-600 text-white rounded-xl font-heading font-bold transition-colors">Ångra radering</button>
+            <div id="cancelMsg" class="text-sm min-h-[1.4em] mt-2"></div>
+          </div>
+        </section>
+
+        <hr class="border-lavender">
+
+        <!-- Privacy link in app -->
+        <section class="pb-8">
+          <a href="/privacy" class="text-sm text-text-soft hover:text-gold transition-colors flex items-center gap-2">
+            <span>🔒</span> Integritetspolicy
+          </a>
+        </section>
+
+        <hr class="border-lavender">
+
+        <!-- Theme Settings -->
+        <section class="pb-8">
+          <h3 class="text-xl font-heading font-bold text-navy mb-4">Utseende</h3>
+          <div class="space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-semibold text-navy">Mörkt läge</label>
+                <p class="text-xs text-text-soft">Aktivera mörkt tema för bekvämare användning i mörker</p>
+              </div>
+              <button id="darkModeToggle" type="button" class="relative w-12 h-7 rounded-full transition-colors duration-200 bg-gray-300" aria-label="Växla mörkt läge">
+                <span id="darkModeKnob" class="absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow transition-transform duration-200"></span>
+              </button>
+            </div>
+
+            <div>
+              <label class="block text-sm font-semibold text-navy mb-1">Färgblindhetstema</label>
+              <p class="text-xs text-text-soft mb-2">Anpassar färgerna för olika typer av färgblindhet</p>
+              <select id="colorBlindMode" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors bg-white">
+                <option value="none">Inget (standard)</option>
+                <option value="protanopia">Protanopi (röd-blind)</option>
+                <option value="deuteranopia">Deuteranopi (grön-blind)</option>
+                <option value="tritanopia">Tritanopi (blå-blind)</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Deletion Confirmation Modal -->
+  <div id="deleteModal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden">
+      <div class="bg-red-500 px-6 py-4 flex items-center gap-3">
+        <span class="text-2xl">⚠️</span>
+        <h3 class="text-xl font-heading font-bold text-white">Bekräfta radering</h3>
+      </div>
+      <div class="p-6">
+        <p class="text-navy mb-2">Är du säker på att du vill radera ditt konto?</p>
+        <div class="bg-red-50 border border-red-200 rounded-xl p-3 mb-4">
+          <p class="text-sm text-red-700 font-semibold">Alla data raderas permanent efter 30 dagar:</p>
+          <ul class="text-sm text-red-600 mt-1 list-disc list-inside space-y-0.5">
+            <li>Familj och alla föräldrar</li>
+            <li>Alla barn och deras scheman</li>
+            <li>Aktiviteter och dagliga loggar</li>
+            <li>Stjärnor, belöningar och betyg</li>
+          </ul>
+        </div>
+        <p class="text-sm text-text-soft mb-4">Du kan ångra dig inom 30 dagar genom att logga in och klicka "Ångra radering".</p>
+        <div class="flex gap-3">
+          <button id="cancelModalBtn" class="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-navy rounded-xl font-semibold transition-colors">Avbryt</button>
+          <button id="confirmDeleteBtn" class="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-bold transition-colors">Ja, radera mitt konto</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let familyChildren = [];
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        Auth.requireAuth();
+
+        // Load family data — Auth.api() returns parsed JSON directly
+        const fam = await Auth.api('/api/family');
+        document.getElementById('familyName').value = fam.name || '';
+        document.getElementById('soundEnabled').checked = fam.sound_enabled !== false;
+
+        familyChildren = fam.children || [];
+
+        // Load parent data to get parent's name (for family name fallback)
+        try {
+          const me = await Auth.api('/api/auth/me');
+          if (me && me.name) {
+            document.getElementById('parentName').value = me.name;
+          }
+        } catch (e) {
+          console.warn('Could not load parent name:', e);
+        }
+
+        // Show invite section only for admins; regular parents use "Lägg till vuxen" on /family
+        const currentUser = Auth.getUser();
+        if (currentUser && currentUser.isAdmin) {
+          document.getElementById('inviteAdminArea').classList.remove('hidden');
+          document.getElementById('inviteRegularUser').classList.add('hidden');
+          renderInviteChildren();
+
+          // Show pending invites
+          if (fam.pendingInvites && fam.pendingInvites.length > 0) {
+            document.getElementById('pendingInvites').innerHTML = '<p class="text-sm font-semibold text-text-soft">Väntande inbjudningar:</p>' +
+              fam.pendingInvites.map(i => `<div class="bg-sky rounded-lg px-4 py-2 text-sm flex justify-between items-center">
+                <span>${i.email}</span>
+                <span class="text-text-soft">Gäller till ${new Date(i.expires_at).toLocaleDateString('sv-SE')}</span>
+              </div>`).join('');
+          }
+        } else {
+          document.getElementById('inviteAdminArea').classList.add('hidden');
+          document.getElementById('inviteRegularUser').classList.remove('hidden');
+        }
+
+        // Load notification preferences
+        const notif = await Auth.api('/api/account/notifications');
+        document.getElementById('weeklySummary').checked = notif.weekly_summary !== false;
+        document.getElementById('rewardRedemption').checked = notif.reward_redemption !== false;
+        document.getElementById('emailEnabled').checked = notif.email_enabled !== false;
+
+        // Initialize theme controls
+        const darkToggle = document.getElementById('darkModeToggle');
+        const darkKnob = document.getElementById('darkModeKnob');
+        const cbSelect = document.getElementById('colorBlindMode');
+
+        function updateDarkToggleUI() {
+          if (Theme.isDark()) {
+            darkToggle.classList.remove('bg-gray-300');
+            darkToggle.classList.add('bg-gold');
+            darkKnob.style.transform = 'translateX(1.25rem)';
+          } else {
+            darkToggle.classList.remove('bg-gold');
+            darkToggle.classList.add('bg-gray-300');
+            darkKnob.style.transform = 'translateX(0)';
+          }
+        }
+        updateDarkToggleUI();
+        cbSelect.value = Theme.getColorBlind();
+
+        darkToggle.addEventListener('click', () => {
+          Theme.toggleDark();
+          updateDarkToggleUI();
+        });
+
+        cbSelect.addEventListener('change', () => {
+          Theme.setColorBlind(cbSelect.value);
+        });
+
+        document.getElementById('logoutBtn').addEventListener('click', () => Auth.logout());
+
+        // Load deletion status
+        try {
+          const status = await Auth.api('/api/account/status');
+          if (status.pending_deletion) {
+            document.getElementById('deletionActive').classList.add('hidden');
+            document.getElementById('deletionPending').classList.remove('hidden');
+            const days = status.days_remaining;
+            document.getElementById('daysRemainingText').textContent =
+              days <= 1 ? 'Radering sker imorgon.' : 'Radering sker om ' + days + ' dagar.';
+          } else {
+            document.getElementById('deletionActive').classList.remove('hidden');
+            document.getElementById('deletionPending').classList.add('hidden');
+          }
+        } catch (e) {
+          console.warn('Could not load deletion status:', e);
+        }
+      } catch (error) {
+        console.error('Settings init failed:', error);
+        window.location.href = '/login';
+      }
+    });
+
+    // Delete account → show confirmation modal
+    document.getElementById('deleteAccountBtn').addEventListener('click', () => {
+      document.getElementById('deleteModal').classList.remove('hidden');
+    });
+
+    // Cancel modal / click backdrop → hide modal
+    document.getElementById('cancelModalBtn').addEventListener('click', () => {
+      document.getElementById('deleteModal').classList.add('hidden');
+    });
+    document.getElementById('deleteModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('deleteModal')) {
+        document.getElementById('deleteModal').classList.add('hidden');
+      }
+    });
+
+    // Confirm delete → submit to API, switch to pending view
+    document.getElementById('confirmDeleteBtn').addEventListener('click', async () => {
+      const modal = document.getElementById('deleteModal');
+      const msg = document.getElementById('deletionMsg');
+      modal.classList.add('hidden');
+      msg.textContent = 'Sänder begäran...';
+      msg.className = 'text-sm text-text-soft';
+      try {
+        await Auth.api('/api/account/delete', { method: 'POST' });
+        document.getElementById('deletionActive').classList.add('hidden');
+        document.getElementById('deletionPending').classList.remove('hidden');
+        document.getElementById('daysRemainingText').textContent = 'Radering sker om 30 dagar.';
+        msg.textContent = '';
+      } catch (err) {
+        msg.textContent = err.message || 'Nätverksfel';
+        msg.className = 'text-sm text-red-500';
+      }
+    });
+
+    // Cancel deletion
+    document.getElementById('cancelDeletionBtn').addEventListener('click', async () => {
+      const msg = document.getElementById('cancelMsg');
+      msg.textContent = 'Sänder...';
+      msg.className = 'text-sm text-text-soft';
+      try {
+        await Auth.api('/api/account/cancel-deletion', { method: 'POST' });
+        window.location.reload();
+      } catch (err) {
+        msg.textContent = err.message || 'Nätverksfel';
+        msg.className = 'text-sm text-red-500';
+      }
+    });
+
+    function renderInviteChildren() {
+      const container = document.getElementById('inviteChildrenList');
+      if (familyChildren.length === 0) return;
+      container.innerHTML = '<p class="text-sm font-semibold text-navy">Välj vilka barn den inbjudna föräldern får åtkomst till:</p>' +
+        familyChildren.map(c => `
+          <label class="flex items-center gap-3 cursor-pointer">
+            <input type="checkbox" class="invite-child-cb w-4 h-4 rounded border-lavender text-gold focus:ring-gold" value="${c.id}" checked>
+            <span class="text-sm">${c.emoji || ''} ${c.name}</span>
+          </label>`).join('');
+    }
+
+    // Family settings form — Auth.api() returns data or throws
+    document.getElementById('familyForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('familyMsg');
+      let familyNameVal = document.getElementById('familyName').value.trim();
+
+      // If family name is empty, auto-regenerate from parent's name
+      if (!familyNameVal) {
+        const parentName = document.getElementById('parentName').value.trim();
+        if (parentName) {
+          familyNameVal = parentName + 's familj';
+          document.getElementById('familyName').value = familyNameVal;
+        }
+      }
+
+      try {
+        const data = await Auth.api('/api/family/settings', {
+          method: 'PUT',
+          body: JSON.stringify({
+            name: familyNameVal,
+            sound_enabled: document.getElementById('soundEnabled').checked,
+          }),
+        });
+        msg.textContent = data.message || 'Sparat!';
+        msg.className = 'text-sm text-green-600';
+      } catch (err) { msg.textContent = err.message || 'Nätverksfel'; msg.className = 'text-sm text-red-500'; }
+    });
+
+    // Invite form
+    document.getElementById('inviteForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('inviteMsg');
+      const childIds = [...document.querySelectorAll('.invite-child-cb:checked')].map(cb => cb.value);
+      try {
+        const data = await Auth.api('/api/family/invite', {
+          method: 'POST',
+          body: JSON.stringify({ email: document.getElementById('inviteEmail').value.trim(), childIds }),
+        });
+        msg.textContent = data.message || 'Inbjudan skickad!';
+        msg.className = 'text-sm text-green-600';
+        document.getElementById('inviteForm').reset();
+      } catch (err) { msg.textContent = err.message || 'Nätverksfel'; msg.className = 'text-sm text-red-500'; }
+    });
+
+    // Password form
+    document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('pwMsg');
+      const newPw = document.getElementById('newPw').value;
+      if (newPw !== document.getElementById('confirmPw').value) {
+        msg.textContent = 'Lösenorden matchar inte'; msg.className = 'text-sm text-red-500'; return;
+      }
+      try {
+        const data = await Auth.api('/api/account/change-password', {
+          method: 'PUT',
+          body: JSON.stringify({ currentPassword: document.getElementById('currentPw').value, newPassword: newPw }),
+        });
+        msg.textContent = data.message || 'Lösenordet har ändrats!';
+        msg.className = 'text-sm text-green-600';
+        document.getElementById('passwordForm').reset();
+      } catch (err) { msg.textContent = err.message || 'Nätverksfel'; msg.className = 'text-sm text-red-500'; }
+    });
+
+    // Notification form
+    document.getElementById('notifForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('notifMsg');
+      try {
+        const data = await Auth.api('/api/account/notifications', {
+          method: 'PUT',
+          body: JSON.stringify({
+            weekly_summary: document.getElementById('weeklySummary').checked,
+            reward_redemption: document.getElementById('rewardRedemption').checked,
+            email_enabled: document.getElementById('emailEnabled').checked,
+          }),
+        });
+        msg.textContent = data.message || 'Sparat!';
+        msg.className = 'text-sm text-green-600';
+      } catch (err) { msg.textContent = err.message || 'Nätverksfel'; msg.className = 'text-sm text-red-500'; }
+    });
+  </script>
+
+  <!-- Feedback Modal -->
+  <div id="feedbackModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-navy-soft rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-heading font-bold text-navy dark:text-white">💬 Ge feedback</h3>
+        <button onclick="closeFeedbackModal()" class="text-text-soft hover:text-navy dark:hover:text-white p-1 rounded-lg transition-colors">✕</button>
+      </div>
+      <form id="feedbackForm" class="space-y-4">
+        <div class="flex gap-3">
+          <label class="flex items-center gap-2 cursor-pointer flex-1 p-3 rounded-xl border-2 border-lavender hover:border-gold transition-colors">
+            <input type="radio" name="feedbackType" value="bug" checked class="accent-gold">
+            <span class="font-semibold text-sm text-navy dark:text-white">🐛 Rapportera problem</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer flex-1 p-3 rounded-xl border-2 border-lavender hover:border-gold transition-colors">
+            <input type="radio" name="feedbackType" value="suggestion" class="accent-gold">
+            <span class="font-semibold text-sm text-navy dark:text-white">💡 Föreslå förbättring</span>
+          </label>
+        </div>
+        <input type="text" id="feedbackTitle" placeholder="Rubrik" required maxlength="100"
+          class="w-full px-4 py-3 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors dark:bg-navy dark:text-white dark:border-navy-soft">
+        <textarea id="feedbackMessage" placeholder="Beskriv problemet eller förbättringsförslaget..." required rows="4"
+          class="w-full px-4 py-3 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors resize-none dark:bg-navy dark:text-white dark:border-navy-soft"></textarea>
+        <div id="feedbackMsg" class="text-sm min-h-[1.2em]"></div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeFeedbackModal()"
+            class="flex-1 py-3 bg-lavender hover:bg-sky text-navy rounded-xl font-semibold transition-colors text-sm">Avbryt</button>
+          <button type="submit" id="feedbackSubmitBtn"
+            class="flex-1 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors text-sm">Skicka</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script>
+  function openFeedbackModal() {
+    document.getElementById('feedbackModal').classList.remove('hidden');
+    document.getElementById('feedbackMsg').textContent = '';
+    document.getElementById('feedbackMsg').className = 'text-sm';
+    document.getElementById('feedbackTitle').value = '';
+    document.getElementById('feedbackMessage').value = '';
+  }
+  function closeFeedbackModal() {
+    document.getElementById('feedbackModal').classList.add('hidden');
+  }
+  function toggleDarkMode() {
+    if (typeof Theme !== 'undefined') { Theme.toggleDark(); }
+  }
+  document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('feedbackSubmitBtn');
+    const msg = document.getElementById('feedbackMsg');
+    const type = document.querySelector('input[name="feedbackType"]:checked')?.value || 'bug';
+    const title = document.getElementById('feedbackTitle').value.trim();
+    const message = document.getElementById('feedbackMessage').value.trim();
+    if (!title || !message) { msg.textContent = 'Fyll i alla fält'; msg.className = 'text-sm text-red-500'; return; }
+    btn.disabled = true; btn.textContent = 'Skickar...';
+    try {
+      const data = await Auth.api('/api/feedback', { method: 'POST', body: JSON.stringify({ type, title, message }) });
+      msg.textContent = data.message || 'Tack för din feedback!';
+      msg.className = 'text-sm text-green-600';
+      setTimeout(() => closeFeedbackModal(), 2000);
+    } catch (err) {
+      msg.textContent = err.message || 'Fel uppstod';
+      msg.className = 'text-sm text-red-500';
+    }
+    btn.disabled = false; btn.textContent = 'Skicka';
+  });
+  </script>
+</body>
+</html>

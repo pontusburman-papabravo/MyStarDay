@@ -1,0 +1,1442 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Panel - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623',
+            'gold-light': '#FFF3D6',
+            navy: '#1B2340',
+            'navy-soft': '#2A3458',
+            sky: '#E8F0FE',
+            lavender: '#EDE7F6',
+            mint: '#E0F5EC',
+            coral: '#FDEAE7',
+            'text-soft': '#5A6178',
+          },
+          fontFamily: {
+            heading: ['Outfit', 'sans-serif'],
+            body: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <script src="/js/auth.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <style>
+    /* Mobile admin sidebar */
+    @media (max-width: 767px) {
+      .admin-sidebar-links { display: none; }
+      .admin-sidebar-links.open { display: block; }
+      .admin-sidebar-logout { display: none; }
+      .admin-sidebar-links.open + .admin-sidebar-logout { display: block; }
+      /* Wrap action buttons */
+      .action-btns { flex-wrap: wrap; }
+      /* Contact messages: hide duplicate section heading on mobile */
+      #messagesSection > .flex.items-center.gap-3 { display: none; }
+      /* Contact messages: fix card overflow on mobile */
+      #messagesContainer .flex.gap-2.items-center { flex-wrap: wrap; }
+      /* Contact messages: reduce card padding on mobile for more space */
+      #messagesContainer .p-6 { padding: 1rem; }
+      /* Ensure messages are scrollable on mobile */
+      #messagesSection { overflow-y: auto; -webkit-overflow-scrolling: touch; padding-bottom: 2rem; }
+    }
+    /* DnD styles */
+    .sortable-ghost { opacity: 0.3; }
+    .sortable-chosen { box-shadow: 0 8px 25px rgba(0,0,0,0.15); transform: scale(1.02); }
+    .drag-handle { cursor: grab; touch-action: none; }
+    .drag-handle:active { cursor: grabbing; }
+  </style>
+</head>
+<body class="bg-white font-body text-navy">
+  <div class="min-h-screen flex flex-col md:flex-row">
+    <!-- Sidebar -->
+    <nav class="w-full md:w-72 bg-navy text-white p-4 md:p-6 md:min-h-screen">
+      <div class="flex items-center justify-between gap-3 mb-4 md:mb-8">
+        <div class="flex items-center gap-3">
+          <span class="text-2xl">&#11088;</span>
+          <h1 class="text-xl font-heading font-bold">Admin</h1>
+        </div>
+        <button id="adminMenuToggle" class="md:hidden p-2 rounded-lg hover:bg-navy-soft transition-colors" aria-label="Meny">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      </div>
+      <ul class="admin-sidebar-links space-y-2" id="adminSidebarLinks">
+        <li><a href="#overview" onclick="showSection('overview');closeMobileMenu()" class="nav-item block px-4 py-2 rounded-lg bg-gold text-navy font-semibold" data-section="overview">Översikt</a></li>
+        <li><a href="#families" onclick="showSection('families');closeMobileMenu()" class="nav-item block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors" data-section="families">Familjer</a></li>
+        <li><a href="#signups" onclick="showSection('signups');closeMobileMenu()" class="nav-item block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors" data-section="signups">Beta-registreringar</a></li>
+        <li><a href="#messages" onclick="showSection('messages');closeMobileMenu()" class="nav-item block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors flex items-center justify-between gap-2" data-section="messages">Meddelanden <span id="messagesBadge" class="bg-gold text-navy text-xs font-bold rounded-full px-2 py-0.5 hidden" style="min-width: 20px; text-align: center;"></span></a></li>
+        <li><a href="#funktioner" onclick="showSection('funktioner');closeMobileMenu()" class="nav-item block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors" data-section="funktioner">Funktioner</a></li>
+        <li><a href="#defaults" onclick="showSection('defaults');closeMobileMenu()" class="nav-item block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors" data-section="defaults">Standardschema</a></li>
+        <li><a href="#password" onclick="showSection('password');closeMobileMenu()" class="nav-item block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors" data-section="password">Byt lösenord</a></li>
+      </ul>
+      <div class="admin-sidebar-logout mt-8 pt-4 border-t border-navy-soft">
+        <button id="logoutBtn" class="w-full px-4 py-2 bg-coral hover:bg-red-200 text-navy rounded-lg font-semibold transition-colors">Logga ut</button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col overflow-auto">
+      <div class="bg-sky border-b border-lavender p-4 md:p-6 sticky top-0 z-10">
+        <h2 class="text-xl md:text-2xl font-heading font-bold text-navy" id="pageTitle">Admin Panel</h2>
+      </div>
+
+      <div class="p-4 md:p-8">
+        <!-- Access Denied -->
+        <div id="accessDenied" class="hidden bg-coral border-l-4 border-red-500 p-6 rounded-lg text-center mb-8">
+          <h3 class="text-lg font-heading font-bold text-navy mb-2">Åtkomst nekad</h3>
+          <p class="text-text-soft mb-4">Du har inte behörighet att se denna sida</p>
+          <a href="/dashboard" class="text-gold font-semibold hover:underline">Gå till min panel</a>
+        </div>
+
+        <!-- OVERVIEW -->
+        <div id="overviewSection" class="mb-8">
+          <h3 class="text-2xl font-heading font-bold text-navy mb-6">Statistik</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+            <div class="bg-sky rounded-2xl p-6 border-2 border-lavender">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-text-soft text-sm font-semibold mb-1">FAMILJER</p>
+                  <p id="familiesCount" class="text-3xl font-heading font-bold text-navy">&mdash;</p>
+                </div>
+                <span class="text-4xl">&#128104;&#8205;&#128105;&#8205;&#128103;</span>
+              </div>
+            </div>
+            <div class="bg-mint rounded-2xl p-6 border-2 border-mint">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-text-soft text-sm font-semibold mb-1">FÖRÄLDRAR</p>
+                  <p id="parentsCount" class="text-3xl font-heading font-bold text-navy">&mdash;</p>
+                </div>
+                <span class="text-4xl">&#128105;&#8205;&#128188;</span>
+              </div>
+            </div>
+            <div class="bg-lavender rounded-2xl p-6 border-2 border-lavender">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-text-soft text-sm font-semibold mb-1">BARN</p>
+                  <p id="childrenCount" class="text-3xl font-heading font-bold text-navy">&mdash;</p>
+                </div>
+                <span class="text-4xl">&#128103;</span>
+              </div>
+            </div>
+            <div class="bg-gold-light rounded-2xl p-6 border-2 border-gold">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-text-soft text-sm font-semibold mb-1">BETA-ANMÄLDA</p>
+                  <p id="signupsCount" class="text-3xl font-heading font-bold text-navy">&mdash;</p>
+                </div>
+                <span class="text-4xl">&#10024;</span>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="bg-coral rounded-2xl p-6 border-2 border-coral">
+              <div class="flex items-center justify-between">
+                <div>
+                  <p class="text-text-soft text-sm font-semibold mb-1">OLÄSTA MEDDELANDEN</p>
+                  <p id="unreadMessagesCount" class="text-3xl font-heading font-bold text-navy">&mdash;</p>
+                  <p class="text-text-soft text-xs mt-1"><span id="totalMessagesCount">&mdash;</span> totalt</p>
+                </div>
+                <span class="text-4xl">&#128172;</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- App Mode Quick Card -->
+          <h3 class="text-2xl font-heading font-bold text-navy mt-8 mb-4">Appläge</h3>
+          <div id="quickModeCard" class="max-w-sm">
+            <div class="text-center text-text-soft py-4">Laddar...</div>
+          </div>
+        </div>
+
+        <!-- FAMILIES (Grouped Cards) -->
+        <div id="familiesSection" class="mb-8 hidden">
+          <h3 class="text-2xl font-heading font-bold text-navy mb-6">Familjer</h3>
+          <div id="familiesContainer" class="space-y-6">
+            <div class="text-center text-text-soft py-8">Laddar...</div>
+          </div>
+
+          <!-- Archived Families -->
+          <div class="mt-8">
+            <button onclick="toggleArchivedSection()" class="flex items-center gap-2 text-text-soft hover:text-navy font-semibold text-sm mb-4 transition-colors">
+              <svg id="archivedChevron" class="w-4 h-4 transition-transform -rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+              </svg>
+              Visa arkiverade familjer
+            </button>
+            <div id="archivedFamiliesWrapper" class="hidden">
+              <div id="archivedFamiliesContainer" class="space-y-4">
+                <div class="text-center text-text-soft py-4">Laddar...</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- FAMILY DELETE MODAL -->
+        <div id="familyDeleteModal" class="fixed inset-0 bg-black/60 flex items-center justify-center z-50 hidden">
+          <div class="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
+            <h3 class="text-xl font-heading font-bold text-navy mb-2">⚠️ Radera familj permanent</h3>
+            <p class="text-text-soft mb-2">Radera <strong id="familyDeleteTargetName" class="text-navy"></strong>?</p>
+            <p class="text-red-600 text-sm font-semibold mb-6">All data försvinner permanent — föräldrakonton, barn, scheman, stjärnor, belöningar, loggar och mer. Kan inte ångras.</p>
+            <div class="flex gap-3 justify-end">
+              <button onclick="cancelFamilyDelete()" class="px-4 py-2 bg-sky hover:bg-lavender text-navy rounded-lg font-semibold transition-colors">Avbryt</button>
+              <button onclick="confirmFamilyDelete()" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors">Radera permanent</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- BETA SIGNUPS -->
+        <div id="signupsSection" class="mb-8 hidden">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="text-2xl font-heading font-bold text-navy">Beta-registreringar</h3>
+            <button id="csvBtn" class="px-4 py-2 bg-gold hover:bg-yellow-500 text-navy rounded-lg font-semibold transition-colors text-sm">
+              Exportera CSV
+            </button>
+          </div>
+          <div class="bg-white rounded-2xl border-2 border-lavender overflow-hidden">
+            <div class="overflow-x-auto">
+              <table class="w-full">
+                <thead>
+                  <tr class="bg-sky border-b border-lavender">
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Namn</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">E-post</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Antal barn</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Åldrar</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Extra stöd</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Rutinutmaning</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Datum</th>
+                    <th class="px-4 md:px-6 py-3 text-left font-heading font-bold text-navy">Åtgärder</th>
+                  </tr>
+                </thead>
+                <tbody id="signupsTable">
+                  <tr><td colspan="8" class="px-6 py-4 text-center text-text-soft">Laddar...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- CONTACT MESSAGES -->
+        <div id="messagesSection" class="mb-8 hidden">
+          <div class="flex items-center gap-3 mb-4">
+            <h3 class="text-2xl font-heading font-bold text-navy">Kontaktmeddelanden</h3>
+            <span id="sectionUnreadBadge" class="bg-gold text-navy text-sm font-bold rounded-full px-3 py-1 hidden" style="min-width: 28px; text-align: center;"></span>
+          </div>
+          <div class="mb-4 flex flex-col sm:flex-row gap-3">
+            <input type="text" id="messagesSearch" placeholder="Sök meddelanden..." class="flex-1 sm:flex-none sm:w-64 px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+            <select id="messagesTypeFilter" onchange="loadMessages()" class="px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors bg-white text-navy font-semibold">
+              <option value="">Alla typer</option>
+              <option value="bug">Buggrapport</option>
+              <option value="feedback">Feedback</option>
+              <option value="contact">Kontakt</option>
+            </select>
+          </div>
+          <div id="messagesContainer" class="space-y-4">
+            <div class="text-center text-text-soft py-8">Laddar...</div>
+          </div>
+        </div>
+
+        <!-- FUNKTIONER (Feature Toggles + Create Admin) -->
+        <div id="funktionerSection" class="mb-8 hidden">
+          <h3 class="text-2xl font-heading font-bold text-navy mb-6">Funktioner</h3>
+
+          <!-- App Mode Selector -->
+          <div class="mb-10">
+            <p class="text-text-soft text-sm mb-5">Välj ett läge för appen. Ändringen träder i kraft direkt för alla besökare.</p>
+            <div id="appModeSelector" class="space-y-3">
+              <div class="text-center text-text-soft py-8">Laddar...</div>
+            </div>
+            <div id="appModeSaveMsg" class="mt-3 text-sm min-h-[1.4em]"></div>
+          </div>
+
+          <!-- Create Admin (moved here) -->
+          <div class="mt-8 pt-8 border-t border-lavender">
+            <h4 class="text-xl font-heading font-bold text-navy mb-4">Skapa ny admin</h4>
+            <div class="max-w-md">
+              <form id="createAdminForm" class="space-y-4">
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">E-post (obligatorisk)</label>
+                  <input type="email" id="adminEmail" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors" placeholder="admin@example.com">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">Lösenord (obligatoriskt, minst 8 tecken)</label>
+                  <input type="password" id="adminPassword" required minlength="8" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">Namn (valfritt)</label>
+                  <input type="text" id="adminName" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors" placeholder="Förnamn Efternamn">
+                </div>
+                <button type="submit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">
+                  Skapa admin
+                </button>
+                <div id="createAdminMsg" class="text-sm min-h-[1.4em]"></div>
+              </form>
+            </div>
+          </div>
+        </div>
+
+        <!-- DEFAULT SCHEMA -->
+        <div id="defaultsSection" class="mb-8 hidden">
+          <h3 class="text-2xl font-heading font-bold text-navy mb-2">Standardschema</h3>
+          <p class="text-text-soft text-sm mb-6">Aktiviteter som automatiskt skapas för nya familjer vid registrering.</p>
+          <div class="flex justify-end mb-4">
+            <button onclick="openAddDefaultModal()" class="px-4 py-2 bg-gold hover:bg-yellow-500 text-white rounded-xl font-semibold text-sm transition-colors">+ Ny aktivitet</button>
+          </div>
+          <div id="defaultTemplatesList" class="space-y-2">
+            <p class="text-text-soft text-center py-8">Laddar...</p>
+          </div>
+        </div>
+
+        <!-- Default Template Modal -->
+        <div id="defaultTemplateModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+          <div class="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-2xl w-full">
+            <div class="flex justify-between items-center mb-4">
+              <h3 id="dtModalTitle" class="text-lg font-heading font-bold text-navy">Ny standardaktivitet</h3>
+              <button onclick="closeDefaultModal()" class="text-text-soft hover:text-navy text-2xl">&times;</button>
+            </div>
+            <input type="hidden" id="dtId">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-navy mb-1">Namn *</label>
+                <input type="text" id="dtName" required maxlength="200" placeholder="T.ex. Borsta tänderna"
+                  class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">Ikon</label>
+                  <input type="text" id="dtIcon" value="📌" maxlength="4"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors text-center text-2xl">
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">Stjärnvärde</label>
+                  <input type="number" id="dtStarValue" value="1" min="1" max="5"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+                </div>
+              </div>
+              <div class="grid grid-cols-2 gap-4">
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">Kategori *</label>
+                  <select id="dtCategory"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+                    <option value="Morgon">Morgon</option>
+                    <option value="Förmiddag">Förmiddag</option>
+                    <option value="Eftermiddag">Eftermiddag</option>
+                    <option value="Kväll">Kväll</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block text-sm font-semibold text-navy mb-1">Sortering</label>
+                  <input type="number" id="dtSortOrder" value="0" min="0"
+                    class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+                </div>
+              </div>
+              <div id="dtMsg" class="text-sm min-h-[1.2em]"></div>
+              <div class="flex gap-3">
+                <button type="button" onclick="closeDefaultModal()" class="flex-1 py-3 bg-lavender hover:bg-sky text-navy rounded-xl font-semibold text-sm transition-colors">Avbryt</button>
+                <button type="button" onclick="submitDefaultTemplate()" class="flex-1 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold text-sm transition-colors">Spara</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PASSWORD CHANGE -->
+        <div id="passwordSection" class="mb-8 hidden">
+          <h3 class="text-2xl font-heading font-bold text-navy mb-6">Byt lösenord</h3>
+          <div class="max-w-md">
+            <form id="passwordForm" class="space-y-4">
+              <div>
+                <label class="block text-sm font-semibold text-navy mb-1">Nuvarande lösenord</label>
+                <input type="password" id="currentPw" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-navy mb-1">Nytt lösenord</label>
+                <input type="password" id="newPw" required minlength="8" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+              </div>
+              <div>
+                <label class="block text-sm font-semibold text-navy mb-1">Bekräfta nytt lösenord</label>
+                <input type="password" id="confirmPw" required minlength="8" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+              </div>
+              <button type="submit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">
+                Byt lösenord
+              </button>
+              <div id="pwMsg" class="text-sm min-h-[1.4em]"></div>
+            </form>
+          </div>
+        </div>
+
+        <!-- DELETE CONFIRMATION MODAL -->
+        <div id="deleteModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 hidden">
+          <div class="bg-white rounded-2xl p-6 max-w-md mx-4 shadow-2xl">
+            <h3 class="text-xl font-heading font-bold text-navy mb-2">Bekräfta borttagning</h3>
+            <p class="text-text-soft mb-6">Är du säker på att du vill ta bort <strong id="deleteTargetName" class="text-navy"></strong>? Detta går inte att ångra.</p>
+            <div class="flex gap-3 justify-end">
+              <button onclick="cancelDelete()" class="px-4 py-2 bg-sky hover:bg-lavender text-navy rounded-lg font-semibold transition-colors">Avbryt</button>
+              <button onclick="confirmDelete()" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-semibold transition-colors">Ta bort</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // ─── Section Navigation ──────────────────────────────────
+    const sectionTitles = {
+      overview: 'Översikt',
+      families: 'Familjer',
+      signups: 'Beta-registreringar',
+      messages: 'Kontaktmeddelanden',
+      funktioner: 'Funktioner',
+      defaults: 'Standardschema',
+      password: 'Byt lösenord',
+    };
+
+    function showSection(name) {
+      document.querySelectorAll('[id$="Section"]').forEach(s => {
+        if (s.id !== 'accessDenied') s.classList.add('hidden');
+      });
+      const target = document.getElementById(name + 'Section');
+      if (target) target.classList.remove('hidden');
+
+      // Update page title
+      const titleEl = document.getElementById('pageTitle');
+      if (titleEl && sectionTitles[name]) {
+        titleEl.textContent = sectionTitles[name];
+      }
+
+      document.querySelectorAll('.nav-item').forEach(a => {
+        a.classList.remove('bg-gold', 'text-navy', 'font-semibold');
+        a.classList.add('text-white', 'hover:bg-navy-soft');
+      });
+      const active = document.querySelector(`.nav-item[data-section="${name}"]`);
+      if (active) {
+        active.classList.add('bg-gold', 'text-navy', 'font-semibold');
+        active.classList.remove('text-white', 'hover:bg-navy-soft');
+      }
+
+      if (name === 'funktioner') {
+        loadAppMode();
+      }
+      // Refresh data when navigating to a section
+      if (name === 'overview') refreshAdminStats();
+      if (name === 'families') loadFamilies();
+      if (name === 'messages') loadMessages();
+      if (name === 'signups') loadBetaSignups();
+    }
+
+    // ─── Mobile Menu Toggle ────────────────────────────────────
+    function closeMobileMenu() {
+      const links = document.getElementById('adminSidebarLinks');
+      if (links) links.classList.remove('open');
+    }
+    (function() {
+      const btn = document.getElementById('adminMenuToggle');
+      const links = document.getElementById('adminSidebarLinks');
+      if (btn && links) {
+        btn.addEventListener('click', function() {
+          links.classList.toggle('open');
+        });
+      }
+    })();
+
+    // Escape HTML to prevent XSS
+    function esc(str) {
+      const d = document.createElement('div');
+      d.textContent = str || '';
+      return d.innerHTML;
+    }
+
+    // ─── App Mode ─────────────────────────────────────────────
+    const APP_MODES = [
+      {
+        key: 'maintenance',
+        icon: '🔧',
+        title: 'Underhållsläge',
+        desc: 'Appen visar ett underhållsmeddelande för alla besökare. /login fungerar alltid för admin.',
+        cardBg: 'bg-coral',
+        cardBorder: 'border-red-200',
+        badgeBg: 'bg-red-100',
+        badgeText: 'text-red-700',
+      },
+      {
+        key: 'beta',
+        icon: '✨',
+        title: 'Beta-läge',
+        desc: 'Startsidan visar en "Intresseanmälan"-knapp. Barnens inloggningsknapp visas tydligt. Ingen öppen registrering.',
+        cardBg: 'bg-lavender',
+        cardBorder: 'border-lavender',
+        badgeBg: 'bg-purple-100',
+        badgeText: 'text-purple-700',
+      },
+      {
+        key: 'registration',
+        icon: '🟢',
+        title: 'Registrering på',
+        desc: 'Startsidan visar "Intresseanmälan" + "Registrera dig". Barnens inloggningsknapp visas. Öppen registrering aktiv.',
+        cardBg: 'bg-mint',
+        cardBorder: 'border-mint',
+        badgeBg: 'bg-green-100',
+        badgeText: 'text-green-700',
+      },
+    ];
+
+    let currentAppMode = null;
+
+    function renderAppModeSelector(mode) {
+      currentAppMode = mode;
+      const container = document.getElementById('appModeSelector');
+      if (!container) return;
+      container.innerHTML = APP_MODES.map(m => {
+        const isActive = m.key === mode;
+        return `
+          <label class="flex items-start gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${isActive ? m.cardBg + ' ' + m.cardBorder : 'bg-white border-lavender hover:border-gold'}">
+            <input type="radio" name="appMode" value="${m.key}" ${isActive ? 'checked' : ''} class="mt-1 accent-gold" onclick="handleModeClick('${m.key}')">
+            <div class="flex-1">
+              <div class="flex items-center gap-2 mb-1">
+                <span class="text-xl">${m.icon}</span>
+                <span class="font-heading font-bold text-navy">${m.title}</span>
+                ${isActive ? `<span class="ml-auto text-xs font-bold px-2 py-0.5 rounded-full ${m.badgeBg} ${m.badgeText}">Aktivt</span>` : ''}
+              </div>
+              <p class="text-sm text-text-soft leading-snug">${m.desc}</p>
+            </div>
+          </label>
+        `;
+      }).join('');
+
+      // Also sync quick mode card
+      renderQuickModeCard(mode);
+    }
+
+    function renderQuickModeCard(mode) {
+      const container = document.getElementById('quickModeCard');
+      if (!container) return;
+      const m = APP_MODES.find(x => x.key === mode) || APP_MODES[1];
+      container.innerHTML = `
+        <div class="${m.cardBg} rounded-2xl p-5 border-2 ${m.cardBorder}">
+          <div class="flex items-center gap-3 mb-2">
+            <span class="text-3xl">${m.icon}</span>
+            <div>
+              <p class="text-text-soft text-xs font-semibold uppercase tracking-wide">Nuvarande läge</p>
+              <p class="font-heading font-bold text-navy text-lg">${m.title}</p>
+            </div>
+            <a href="#funktioner" onclick="showSection('funktioner')" class="ml-auto text-xs font-semibold text-gold hover:underline">Ändra →</a>
+          </div>
+          <p class="text-sm text-text-soft leading-snug">${m.desc}</p>
+        </div>
+      `;
+    }
+
+    async function loadAppMode() {
+      try {
+        const data = await Auth.api('/api/admin/app-mode');
+        renderAppModeSelector(data.mode);
+      } catch (err) {
+        console.error('Failed to load app mode:', err);
+        const container = document.getElementById('appModeSelector');
+        if (container) container.innerHTML = '<div class="text-red-500 py-4">Kunde inte ladda appläget.</div>';
+      }
+    }
+
+    async function handleModeClick(newMode) {
+      // Guard: clicking the already-active mode should not re-trigger API call.
+      // This also prevents double-firing when both onclick (primary) and
+      // onchange (fallback) fire for the same click in some browsers.
+      if (newMode === currentAppMode) return;
+      await handleModeChange(newMode);
+    }
+
+    async function handleModeChange(newMode) {
+      // Guard: clicking the already-active mode should not trigger an API call
+      if (newMode === currentAppMode) return;
+      const msgEl = document.getElementById('appModeSaveMsg');
+      if (msgEl) { msgEl.textContent = 'Sparar...'; msgEl.className = 'mt-3 text-sm text-text-soft'; }
+      try {
+        await Auth.api('/api/admin/app-mode', {
+          method: 'PUT',
+          body: JSON.stringify({ mode: newMode }),
+        });
+        currentAppMode = newMode;
+        renderAppModeSelector(newMode);
+        if (msgEl) { msgEl.textContent = '✓ Appläget har sparats.'; msgEl.className = 'mt-3 text-sm text-green-600 font-semibold'; }
+        setTimeout(() => { if (msgEl) msgEl.textContent = ''; }, 3000);
+      } catch (err) {
+        // Revert radio to previous mode
+        if (currentAppMode) renderAppModeSelector(currentAppMode);
+        if (msgEl) { msgEl.textContent = err.message || 'Kunde inte uppdatera appläget.'; msgEl.className = 'mt-3 text-sm text-red-500'; }
+        alert(err.message || 'Kunde inte uppdatera appläget');
+      }
+    }
+
+    // ─── Stored data for search/filter ────────────────────────
+    let allMessages = [];
+
+    // ─── Init ─────────────────────────────────────────────────
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        Auth.requireAuth();
+        showSection('overview');
+
+        // Verify admin status
+        const me = await Auth.api('/api/auth/me');
+
+        if (!me.is_admin) {
+          document.getElementById('accessDenied').classList.remove('hidden');
+          document.querySelectorAll('[id$="Section"]').forEach(s => {
+            if (s.id !== 'accessDenied') s.classList.add('hidden');
+          });
+          setTimeout(() => { window.location.href = '/login'; }, 3000);
+          return;
+        }
+
+        // Load stats
+        try {
+          const stats = await Auth.api('/api/admin/stats');
+          document.getElementById('familiesCount').textContent = stats.families || 0;
+          document.getElementById('parentsCount').textContent = stats.parents || 0;
+          document.getElementById('childrenCount').textContent = stats.children || 0;
+          document.getElementById('signupsCount').textContent = stats.betaSignups || 0;
+          const unread = stats.unreadMessages || 0;
+          document.getElementById('unreadMessagesCount').textContent = unread;
+          document.getElementById('unreadMessagesCount').style.color = unread > 0 ? '#E53E3E' : '#1B2340';
+          updateMessagesBadge(unread);
+        } catch (e) {
+          console.error('Failed to load stats:', e);
+        }
+
+        // Load app mode card on overview
+        loadAppMode();
+
+        // Load grouped families
+        loadFamilies();
+
+        // Load beta signups
+        loadBetaSignups();
+
+        // Load contact messages
+        loadMessages();
+
+        // CSV export
+        document.getElementById('csvBtn').addEventListener('click', async () => {
+          try {
+            const token = Auth.getToken();
+            const res = await fetch('/api/admin/beta-signups/csv', {
+              headers: { 'Authorization': `Bearer ${token}` },
+            });
+            if (!res.ok) throw new Error('CSV export failed');
+            const blob = await res.blob();
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'beta-signups.csv';
+            a.click();
+            URL.revokeObjectURL(url);
+          } catch (err) {
+            alert('Kunde inte exportera CSV');
+          }
+        });
+
+        // Password change
+        document.getElementById('passwordForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const msg = document.getElementById('pwMsg');
+          const currentPw = document.getElementById('currentPw').value;
+          const newPw = document.getElementById('newPw').value;
+          const confirmPw = document.getElementById('confirmPw').value;
+
+          if (newPw !== confirmPw) {
+            msg.textContent = 'Lösenorden matchar inte';
+            msg.className = 'text-sm text-red-500';
+            return;
+          }
+
+          try {
+            const data = await Auth.api('/api/admin/change-password', {
+              method: 'PUT',
+              body: JSON.stringify({ currentPassword: currentPw, newPassword: newPw }),
+            });
+            msg.textContent = data.message || 'Lösenordet har ändrats!';
+            msg.className = 'text-sm text-green-600';
+            document.getElementById('passwordForm').reset();
+          } catch (err) {
+            msg.textContent = err.message || 'Något gick fel';
+            msg.className = 'text-sm text-red-500';
+          }
+        });
+
+        // Create admin form
+        document.getElementById('createAdminForm').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const msg = document.getElementById('createAdminMsg');
+          const email = document.getElementById('adminEmail').value.trim();
+          const password = document.getElementById('adminPassword').value;
+          const name = document.getElementById('adminName').value.trim();
+
+          if (password.length < 8) {
+            msg.textContent = 'Lösenordet måste vara minst 8 tecken';
+            msg.className = 'text-sm text-red-500';
+            return;
+          }
+
+          try {
+            const body = { email, password };
+            if (name) body.name = name;
+            const data = await Auth.api('/api/admin/create-admin', {
+              method: 'POST',
+              body: JSON.stringify(body),
+            });
+            msg.textContent = data.message || 'Admin-konto skapat!';
+            msg.className = 'text-sm text-green-600';
+            document.getElementById('createAdminForm').reset();
+          } catch (err) {
+            msg.textContent = err.message || 'Kunde inte skapa admin-konto';
+            msg.className = 'text-sm text-red-500';
+          }
+        });
+
+        // Messages search
+        document.getElementById('messagesSearch').addEventListener('input', (e) => {
+          const query = e.target.value.toLowerCase().trim();
+          renderMessages(filterMessages(query));
+        });
+
+        // Logout
+        document.getElementById('logoutBtn').addEventListener('click', () => Auth.logout());
+
+        // Auto-refresh stats and messages every 30 seconds
+        setInterval(refreshAdminStats, 30000);
+      } catch (error) {
+        console.error('Admin init failed:', error);
+        window.location.href = '/login';
+      }
+    });
+
+    async function refreshAdminStats() {
+      try {
+        const stats = await Auth.api('/api/admin/stats');
+        document.getElementById('familiesCount').textContent = stats.families || 0;
+        document.getElementById('parentsCount').textContent = stats.parents || 0;
+        document.getElementById('childrenCount').textContent = stats.children || 0;
+        document.getElementById('signupsCount').textContent = stats.betaSignups || 0;
+        const unread = stats.unreadMessages || 0;
+        document.getElementById('unreadMessagesCount').textContent = unread;
+        document.getElementById('unreadMessagesCount').style.color = unread > 0 ? '#E53E3E' : '#1B2340';
+        updateMessagesBadge(unread);
+      } catch (e) {
+        // Silent fail for polling
+      }
+    }
+
+    // ─── Families (Grouped Cards) ─────────────────────────────
+
+    async function loadFamilies() {
+      const container = document.getElementById('familiesContainer');
+      try {
+        const families = await Auth.api('/api/admin/families-grouped');
+        renderFamilyCards(families, container);
+      } catch (e) {
+        console.error('Failed to load families:', e);
+        container.innerHTML = '<div class="text-center text-red-500 py-8">Kunde inte ladda familjer</div>';
+      }
+    }
+
+    function renderFamilyCards(families, container) {
+      if (!families || families.length === 0) {
+        container.innerHTML = '<div class="text-center text-text-soft py-8 bg-sky rounded-2xl">Inga familjer än</div>';
+        return;
+      }
+
+      container.innerHTML = families.map((family, idx) => {
+        const shortId = family.id ? family.id.substring(0, 8) : '?';
+        const parentRows = (family.parents || []).map(p => {
+          const verifiedBadge = p.verified
+            ? '<span class="inline-block px-2 py-0.5 bg-mint text-green-700 text-xs rounded-full font-semibold">Verifierad</span>'
+            : '<span class="inline-block px-2 py-0.5 bg-yellow-100 text-yellow-700 text-xs rounded-full font-semibold">Ej verifierad</span>';
+          const adminBadge = p.is_admin
+            ? ' <span class="inline-block px-2 py-0.5 bg-lavender text-purple-700 text-xs rounded-full font-semibold">Admin</span>'
+            : '';
+          const lockedBadge = p.locked
+            ? ' <span class="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full font-semibold">Låst</span>'
+            : '';
+
+          const approveBtn = !p.verified
+            ? `<button onclick="approveParent('${esc(p.id)}')" class="px-2 py-1 bg-gold hover:bg-yellow-500 text-navy text-xs rounded-lg font-semibold transition-colors">Godkänn</button>`
+            : '';
+          const lockBtn = p.locked
+            ? `<button onclick="unlockParent('${esc(p.id)}')" class="px-2 py-1 bg-mint hover:bg-green-200 text-green-700 text-xs rounded-lg font-semibold transition-colors">Lås upp</button>`
+            : `<button onclick="lockParent('${esc(p.id)}', '${esc(p.email)}')" class="px-2 py-1 bg-yellow-100 hover:bg-yellow-200 text-yellow-700 text-xs rounded-lg font-semibold transition-colors">Lås</button>`;
+          const resetPwBtn = `<button onclick="resetParentPassword('${esc(p.id)}', '${esc(p.email)}')" class="px-2 py-1 bg-sky hover:bg-lavender text-navy text-xs rounded-lg font-semibold transition-colors">Återställ lösenord</button>`;
+          const deleteBtn = `<button onclick="deleteAccount('parent', '${esc(p.id)}', '${esc(p.email)}')" class="px-2 py-1 bg-coral hover:bg-red-200 text-red-700 text-xs rounded-lg font-semibold transition-colors">Ta bort</button>`;
+
+          return `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 py-3 px-4 border-b border-lavender/50 hover:bg-sky/50 transition-colors">
+            <div class="flex-1 min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <span class="text-navy font-medium text-sm truncate">${esc(p.email)}</span>
+                ${verifiedBadge}${adminBadge}${lockedBadge}
+              </div>
+              <p class="text-text-soft text-xs mt-0.5">${esc(p.name || '')}</p>
+            </div>
+            <div class="flex flex-wrap gap-1 shrink-0 action-btns">
+              ${approveBtn}${lockBtn}${resetPwBtn}${deleteBtn}
+            </div>
+          </div>`;
+        }).join('');
+
+        const childRows = (family.children || []).map(c => {
+          const birthday = c.birthday ? new Date(c.birthday).toLocaleDateString('sv-SE') : '';
+          return `<div class="flex flex-col md:flex-row md:items-center justify-between gap-2 py-3 px-4 border-b border-lavender/50 hover:bg-sky/50 transition-colors">
+            <div class="flex items-center gap-2">
+              <span class="text-lg">${esc(c.emoji || '')}</span>
+              <div>
+                <span class="text-navy font-medium text-sm">${esc(c.name)}</span>
+                <span class="text-text-soft text-xs ml-1">(${esc(c.username)})</span>
+                ${birthday ? `<span class="text-text-soft text-xs ml-2">${esc(birthday)}</span>` : ''}
+              </div>
+            </div>
+          </div>`;
+        }).join('');
+
+        const noParents = (family.parents || []).length === 0
+          ? '<p class="text-text-soft text-sm italic px-4 py-2">Inga föräldrar</p>'
+          : '';
+        const noChildren = (family.children || []).length === 0
+          ? '<p class="text-text-soft text-sm italic px-4 py-2">Inga barn</p>'
+          : '';
+
+        const familyName = family.family_name || '';
+        const familyLabel = familyName ? esc(familyName) : `Familj ${esc(shortId)}`;
+
+        return `<div class="bg-white rounded-2xl border-2 border-lavender overflow-hidden">
+          <button onclick="toggleFamilyCard(this)" class="w-full flex items-center justify-between px-4 md:px-6 py-4 bg-sky hover:bg-lavender/50 transition-colors text-left">
+            <div class="flex items-center gap-3">
+              <span class="text-lg">&#128104;&#8205;&#128105;&#8205;&#128103;</span>
+              <div>
+                <h4 class="font-heading font-bold text-navy">${familyLabel}</h4>
+                <p class="text-text-soft text-xs">${(family.parents || []).length} föräldrar, ${(family.children || []).length} barn · ID: ${esc(shortId)}</p>
+              </div>
+            </div>
+            <svg class="family-chevron w-5 h-5 text-navy transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/>
+            </svg>
+          </button>
+          <div class="family-content">
+            <div class="px-4 md:px-6 pt-4 pb-2 flex items-center gap-2 border-b border-lavender/50">
+              <input type="text" id="fname-${family.id}" value="${esc(familyName)}" placeholder="Ange familjenamn..." class="flex-1 px-3 py-1.5 rounded-lg border border-lavender text-sm focus:border-gold outline-none">
+              <button onclick="saveFamilyName('${family.id}')" class="px-3 py-1.5 bg-gold hover:bg-yellow-500 text-navy text-xs rounded-lg font-semibold transition-colors whitespace-nowrap">Spara namn</button>
+            </div>
+            <div class="px-4 md:px-6 pt-4 pb-2">
+              <h5 class="text-xs font-heading font-bold text-text-soft uppercase tracking-wider mb-2">Föräldrar</h5>
+              ${noParents}${parentRows}
+            </div>
+            <div class="px-4 md:px-6 pt-2 pb-4">
+              <h5 class="text-xs font-heading font-bold text-text-soft uppercase tracking-wider mb-2">Barn</h5>
+              ${noChildren}${childRows}
+            </div>
+            <div class="px-4 md:px-6 py-3 border-t border-lavender flex flex-wrap gap-2 items-center justify-end bg-sky/30">
+              <button onclick="archiveFamily('${family.id}', '${esc(familyLabel)}')" class="px-3 py-1.5 bg-yellow-100 hover:bg-yellow-200 text-yellow-800 text-xs rounded-lg font-semibold transition-colors">📦 Arkivera</button>
+              <button onclick="deleteFamilyPermanent('${family.id}', '${esc(familyLabel)}')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs rounded-lg font-semibold transition-colors">🗑️ Ta bort permanent</button>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    async function saveFamilyName(familyId) {
+      const input = document.getElementById('fname-' + familyId);
+      if (!input) return;
+      const name = input.value.trim();
+      if (!name) { alert('Familjenamn kan inte vara tomt'); return; }
+      try {
+        await Auth.api(`/api/admin/families/${familyId}/name`, {
+          method: 'PUT',
+          body: JSON.stringify({ name }),
+        });
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte spara Familienamn — kontrollera att namnet inte redan används');
+      }
+    }
+
+    function toggleFamilyCard(btn) {
+      const content = btn.nextElementSibling;
+      const chevron = btn.querySelector('.family-chevron');
+      if (content.style.display === 'none') {
+        content.style.display = '';
+        chevron.style.transform = '';
+      } else {
+        content.style.display = 'none';
+        chevron.style.transform = 'rotate(-90deg)';
+      }
+    }
+
+    // ─── Archive / Restore / Delete Family ─────────────────────
+
+    async function archiveFamily(familyId, familyLabel) {
+      if (!confirm(`Arkivera "${familyLabel}"? Familjen döljs från listan men all data bevaras.`)) return;
+      try {
+        await Auth.api(`/api/admin/families/${familyId}/archive`, { method: 'PUT' });
+        loadFamilies();
+        // Refresh archived list if visible
+        if (!document.getElementById('archivedFamiliesWrapper').classList.contains('hidden')) {
+          loadArchivedFamilies();
+        }
+      } catch (err) {
+        alert(err.message || 'Kunde inte arkivera familjen');
+      }
+    }
+
+    let _archivedLoaded = false;
+
+    async function toggleArchivedSection() {
+      const wrapper = document.getElementById('archivedFamiliesWrapper');
+      const chevron = document.getElementById('archivedChevron');
+      const isHidden = wrapper.classList.contains('hidden');
+      if (isHidden) {
+        wrapper.classList.remove('hidden');
+        chevron.style.transform = '';
+        if (!_archivedLoaded) {
+          _archivedLoaded = true;
+          await loadArchivedFamilies();
+        }
+      } else {
+        wrapper.classList.add('hidden');
+        chevron.style.transform = 'rotate(-90deg)';
+      }
+    }
+
+    async function loadArchivedFamilies() {
+      const container = document.getElementById('archivedFamiliesContainer');
+      container.innerHTML = '<div class="text-center text-text-soft py-4">Laddar...</div>';
+      try {
+        const families = await Auth.api('/api/admin/families-grouped?archived=true');
+        if (!families || families.length === 0) {
+          container.innerHTML = '<div class="text-center text-text-soft py-4 bg-sky rounded-xl">Inga arkiverade familjer</div>';
+          return;
+        }
+        container.innerHTML = families.map(family => {
+          const shortId = family.id ? family.id.substring(0, 8) : '?';
+          const familyName = family.family_name || '';
+          const familyLabel = familyName ? esc(familyName) : `Familj ${esc(shortId)}`;
+          const archivedDate = family.archived_at
+            ? new Date(family.archived_at).toLocaleDateString('sv-SE')
+            : '';
+          return `
+            <div class="bg-gray-50 rounded-xl border-2 border-gray-200 p-4 flex flex-col md:flex-row md:items-center justify-between gap-3">
+              <div>
+                <h5 class="font-heading font-bold text-navy">${familyLabel}</h5>
+                <p class="text-text-soft text-xs">${(family.parents||[]).length} föräldrar, ${(family.children||[]).length} barn · Arkiverad: ${esc(archivedDate)}</p>
+              </div>
+              <div class="flex gap-2 shrink-0">
+                <button onclick="restoreFamily('${esc(family.id)}', '${familyLabel}')" class="px-3 py-1.5 bg-mint hover:bg-green-200 text-green-700 text-xs rounded-lg font-semibold transition-colors">↩️ Återställ</button>
+                <button onclick="deleteFamilyPermanent('${esc(family.id)}', '${familyLabel}')" class="px-3 py-1.5 bg-red-100 hover:bg-red-200 text-red-700 text-xs rounded-lg font-semibold transition-colors">🗑️ Ta bort</button>
+              </div>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        container.innerHTML = '<div class="text-center text-red-500 py-4">Kunde inte ladda arkiverade familjer</div>';
+        console.error('Failed to load archived families:', err);
+      }
+    }
+
+    async function restoreFamily(familyId, familyLabel) {
+      if (!confirm(`Återställa "${familyLabel}" till aktiva familjer?`)) return;
+      try {
+        await Auth.api(`/api/admin/families/${familyId}/restore`, { method: 'PUT' });
+        _archivedLoaded = false;
+        await loadArchivedFamilies();
+        _archivedLoaded = true;
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte återställa familjen');
+      }
+    }
+
+    function deleteFamilyPermanent(familyId, familyLabel) {
+      document.getElementById('familyDeleteTargetName').textContent = familyLabel;
+      document.getElementById('familyDeleteModal').classList.remove('hidden');
+      window._pendingFamilyDelete = familyId;
+    }
+
+    async function confirmFamilyDelete() {
+      const familyId = window._pendingFamilyDelete;
+      if (!familyId) return;
+      document.getElementById('familyDeleteModal').classList.add('hidden');
+      try {
+        await Auth.api(`/api/admin/families/${familyId}`, { method: 'DELETE' });
+        window._pendingFamilyDelete = null;
+        loadFamilies();
+        _archivedLoaded = false;
+        if (!document.getElementById('archivedFamiliesWrapper').classList.contains('hidden')) {
+          _archivedLoaded = true;
+          await loadArchivedFamilies();
+        }
+      } catch (err) {
+        alert(err.message || 'Kunde inte ta bort familjen');
+      }
+    }
+
+    function cancelFamilyDelete() {
+      document.getElementById('familyDeleteModal').classList.add('hidden');
+      window._pendingFamilyDelete = null;
+    }
+
+    // ─── Beta Signups ─────────────────────────────────────────
+
+    async function loadBetaSignups() {
+      try {
+        const signups = await Auth.api('/api/admin/beta-signups');
+        const table = document.getElementById('signupsTable');
+
+        if (signups.length > 0) {
+          table.innerHTML = signups.map(s => {
+            const date = new Date(s.created_at).toLocaleDateString('sv-SE');
+
+            // Parse child_ages (can be array or JSON string)
+            let childAgesDisplay = '-';
+            if (s.child_ages) {
+              try {
+                const ages = typeof s.child_ages === 'string' ? JSON.parse(s.child_ages) : s.child_ages;
+                childAgesDisplay = Array.isArray(ages) && ages.length > 0 ? ages.join(', ') : '-';
+              } catch (e) {
+                childAgesDisplay = String(s.child_ages);
+              }
+            }
+
+            // Format num_children display
+            const numChildrenDisplay = (s.num_children !== null && s.num_children !== undefined)
+              ? (String(s.num_children) === '0' ? '0 (gravid/planerar)' : s.num_children === 3 ? '3+' : String(s.num_children))
+              : '-';
+
+            return `<tr class="border-b border-lavender hover:bg-sky transition-colors">
+              <td class="px-4 md:px-6 py-3 text-navy font-medium">${esc(s.name) || '-'}</td>
+              <td class="px-4 md:px-6 py-3 text-text-soft"><a href="mailto:${esc(s.email)}" class="hover:text-gold">${esc(s.email)}</a></td>
+              <td class="px-4 md:px-6 py-3 text-text-soft">${esc(numChildrenDisplay)}</td>
+              <td class="px-4 md:px-6 py-3 text-text-soft text-sm">${esc(childAgesDisplay)}</td>
+              <td class="px-4 md:px-6 py-3 text-text-soft text-sm max-w-[160px] truncate" title="${esc(s.extra_support || '')}">${s.extra_support ? esc(s.extra_support) : '<span class="italic text-text-soft/50">—</span>'}</td>
+              <td class="px-4 md:px-6 py-3 text-text-soft text-sm max-w-[160px] truncate" title="${esc(s.routine_challenge || '')}">${s.routine_challenge ? esc(s.routine_challenge) : '<span class="italic text-text-soft/50">—</span>'}</td>
+              <td class="px-4 md:px-6 py-3 text-text-soft text-sm">${esc(date)}</td>
+              <td class="px-4 md:px-6 py-3">
+                <button onclick="deleteBetaSignup('${esc(s.id)}')" class="px-2 py-1 bg-coral hover:bg-red-200 text-red-700 text-xs rounded-lg font-semibold transition-colors">Ta bort</button>
+              </td>
+            </tr>`;
+          }).join('');
+        } else {
+          table.innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-text-soft">Inga registreringar än</td></tr>';
+        }
+      } catch (e) {
+        console.error('Failed to load beta signups:', e);
+        document.getElementById('signupsTable').innerHTML = '<tr><td colspan="8" class="px-6 py-4 text-center text-red-500">Kunde inte ladda registreringar</td></tr>';
+      }
+    }
+
+    async function deleteBetaSignup(id) {
+      if (!confirm('Är du säker på att du vill ta bort denna beta-registrering?')) return;
+      try {
+        await Auth.api(`/api/admin/beta-signups/${id}`, { method: 'DELETE' });
+        loadBetaSignups();
+      } catch (err) {
+        alert(err.message || 'Kunde inte ta bort registrering');
+      }
+    }
+
+    // ─── Contact Messages ─────────────────────────────────────
+
+    function updateMessagesBadge(count) {
+      const badge = document.getElementById('messagesBadge');
+      if (!badge) return;
+      if (count > 0) {
+        badge.textContent = count > 99 ? '99+' : count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    async function loadMessages() {
+      try {
+        const typeFilter = document.getElementById('messagesTypeFilter')?.value || '';
+        const url = typeFilter
+          ? `/api/admin/contact-messages?type=${encodeURIComponent(typeFilter)}`
+          : '/api/admin/contact-messages';
+        const messages = await Auth.api(url);
+        allMessages = messages;
+        const unreadCount = messages.filter(m => !m.is_read).length;
+        document.getElementById('unreadMessagesCount').textContent = unreadCount;
+        document.getElementById('unreadMessagesCount').style.color = unreadCount > 0 ? '#E53E3E' : '#1B2340';
+        document.getElementById('totalMessagesCount').textContent = messages.length;
+        updateMessagesBadge(unreadCount);
+
+        // Update section header badge
+        const sectionBadge = document.getElementById('sectionUnreadBadge');
+        if (sectionBadge) {
+          if (unreadCount > 0) {
+            sectionBadge.textContent = unreadCount > 99 ? '99+' : unreadCount + ' olästa';
+            sectionBadge.classList.remove('hidden');
+          } else {
+            sectionBadge.classList.add('hidden');
+          }
+        }
+
+        renderMessages(messages);
+      } catch (e) {
+        console.error('Failed to load contact messages:', e);
+        document.getElementById('messagesContainer').innerHTML = '<div class="text-center text-red-500 py-8">Kunde inte ladda meddelanden</div>';
+      }
+    }
+
+    function filterMessages(query) {
+      if (!query) return allMessages;
+      return allMessages.filter(m => {
+        const name = (m.name || '').toLowerCase();
+        const email = (m.email || '').toLowerCase();
+        const message = (m.message || '').toLowerCase();
+        return name.includes(query) || email.includes(query) || message.includes(query);
+      });
+    }
+
+    function renderMessages(messages) {
+      const container = document.getElementById('messagesContainer');
+      if (messages.length > 0) {
+        container.innerHTML = messages.map(m => {
+          const date = new Date(m.created_at).toLocaleDateString('sv-SE', {
+            year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit'
+          });
+          const noteDate = m.noted_at ? new Date(m.noted_at).toLocaleDateString('sv-SE', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : '';
+          const isUnread = !m.is_read;
+          const unreadBadge = isUnread
+            ? `<span class="inline-block px-2 py-0.5 bg-red-100 text-red-700 text-xs font-bold rounded-full">Oläst</span>`
+            : `<span class="inline-block px-2 py-0.5 bg-green-100 text-green-700 text-xs font-semibold rounded-full">Läst</span>`;
+
+          // Message type badge
+          const msgType = m.message_type || 'contact';
+          const typeBadgeMap = {
+            bug:     { label: 'Buggrapport', bg: 'bg-red-100', color: 'text-red-700' },
+            feedback: { label: 'Feedback', bg: 'bg-lavender', color: 'text-purple-700' },
+            contact: { label: 'Kontakt', bg: 'bg-sky', color: 'text-navy' },
+          };
+          const typeInfo = typeBadgeMap[msgType] || typeBadgeMap.contact;
+          const typeBadge = `<span class="inline-block px-2 py-0.5 ${typeInfo.bg} ${typeInfo.color} text-xs font-semibold rounded-full">${typeInfo.label}</span>`;
+
+          const toggleLabel = isUnread ? 'Markera läst' : 'Markera oläst';
+          const toggleBtnClass = isUnread
+            ? 'px-3 py-1.5 bg-gold hover:bg-yellow-500 text-navy text-xs rounded-lg font-semibold transition-colors whitespace-nowrap'
+            : 'px-3 py-1.5 bg-lavender hover:bg-purple-200 text-purple-700 text-xs rounded-lg font-semibold transition-colors whitespace-nowrap';
+          return `<div class="bg-white rounded-2xl border-2 ${isUnread ? 'border-red-300' : 'border-lavender'} p-6">
+            <div class="flex justify-between items-start mb-3">
+              <div class="flex flex-col gap-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <p class="font-heading font-bold text-navy">${esc(m.name)}</p>
+                  ${unreadBadge}
+                  ${typeBadge}
+                </div>
+                <p class="text-text-soft text-sm">${esc(m.email)}</p>
+              </div>
+              <div class="flex flex-col items-end gap-1">
+                <span class="text-text-soft text-xs">${esc(date)}</span>
+                <button onclick="toggleRead('${esc(m.id)}', ${isUnread})" class="${toggleBtnClass}">${toggleLabel}</button>
+              </div>
+            </div>
+            <p class="text-navy bg-sky rounded-lg p-4 text-sm leading-relaxed mb-3">${esc(m.message)}</p>
+            ${m.internal_note ? `<div class="bg-gold-light rounded-lg p-3 mb-3 text-sm"><p class="text-xs text-text-soft font-semibold mb-1">Intern anteckning (${noteDate})</p><p class="text-navy">${esc(m.internal_note)}</p></div>` : ''}
+            <div class="flex gap-2 items-center">
+              <input type="text" id="note-${m.id}" value="${esc(m.internal_note || '')}" placeholder="Skriv intern anteckning..." class="flex-1 px-3 py-1.5 rounded-lg border border-lavender text-sm focus:border-gold outline-none">
+              <button onclick="saveNote('${esc(m.id)}')" class="px-3 py-1.5 bg-mint hover:bg-green-200 text-green-700 text-xs rounded-lg font-semibold transition-colors whitespace-nowrap">Spara anteckning</button>
+              <button onclick="deleteMessage('${esc(m.id)}')" class="px-3 py-1.5 bg-coral hover:bg-red-200 text-red-700 text-xs rounded-lg font-semibold transition-colors">Ta bort</button>
+            </div>
+          </div>`;
+        }).join('');
+      } else {
+        container.innerHTML = '<div class="text-center text-text-soft py-8 bg-sky rounded-2xl">Inga meddelanden att visa</div>';
+      }
+    }
+
+    async function saveNote(messageId) {
+      const input = document.getElementById('note-' + messageId);
+      if (!input) return;
+      try {
+        await Auth.api(`/api/admin/contact-messages/${messageId}/note`, {
+          method: 'PUT',
+          body: JSON.stringify({ note: input.value }),
+        });
+        loadMessages();
+      } catch (err) {
+        alert(err.message || 'Kunde inte spara anteckning');
+      }
+    }
+
+    async function toggleRead(messageId, newReadState) {
+      try {
+        await Auth.api(`/api/admin/contact-messages/${messageId}/read`, {
+          method: 'PUT',
+          body: JSON.stringify({ is_read: newReadState }),
+        });
+        loadMessages();
+      } catch (err) {
+        alert(err.message || 'Kunde inte uppdatera läsläge');
+      }
+    }
+
+    async function deleteMessage(id) {
+      if (!confirm('Är du säker på att du vill ta bort detta meddelande?')) return;
+      try {
+        await Auth.api(`/api/admin/contact-messages/${id}`, { method: 'DELETE' });
+        loadMessages();
+        // Clear search field on reload
+        document.getElementById('messagesSearch').value = '';
+      } catch (err) {
+        alert(err.message || 'Kunde inte ta bort meddelande');
+      }
+    }
+
+    // ─── Admin Action Handlers ───────────────────────────────
+
+    // Approve a parent account
+    async function approveParent(parentId) {
+      if (!confirm('Godkänna detta föräldrakonto?')) return;
+      try {
+        await Auth.api(`/api/admin/approve-parent/${parentId}`, { method: 'PUT' });
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte godkänna konto');
+      }
+    }
+
+    // Lock parent account
+    async function lockParent(parentId, email) {
+      if (!confirm(`Låsa kontot för ${email}? Hen kan inte logga in tills kontot låses upp.`)) return;
+      try {
+        await Auth.api(`/api/admin/lock-parent/${parentId}`, { method: 'PUT' });
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte låsa konto');
+      }
+    }
+
+    // Unlock parent account
+    async function unlockParent(parentId) {
+      try {
+        await Auth.api(`/api/admin/unlock-parent/${parentId}`, { method: 'PUT' });
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte låsa upp konto');
+      }
+    }
+
+    // Reset parent password
+    async function resetParentPassword(parentId, email) {
+      if (!confirm(`Återställ lösenord för ${email}? Ett tillfälligt lösenord genereras automatiskt.`)) return;
+      try {
+        const data = await Auth.api(`/api/admin/reset-parent-password/${parentId}`, { method: 'PUT' });
+        const tempPassword = data.temporaryPassword || data.password || data.tempPassword || '(se serverloggen)';
+        alert(`Tillfälligt lösenord för ${email}:\n\n${tempPassword}\n\nKopiera detta och skicka till föräldern.`);
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte återställa lösenord');
+      }
+    }
+
+    // Delete account (parent or child) -- shows confirmation modal
+    function deleteAccount(type, id, name) {
+      document.getElementById('deleteTargetName').textContent = name;
+      document.getElementById('deleteModal').classList.remove('hidden');
+      window._pendingDelete = { type, id };
+    }
+
+    async function confirmDelete() {
+      const { type, id } = window._pendingDelete || {};
+      if (!type || !id) return;
+      document.getElementById('deleteModal').classList.add('hidden');
+      try {
+        await Auth.api(`/api/admin/account/${type}/${id}`, { method: 'DELETE' });
+        window._pendingDelete = null;
+        loadFamilies();
+      } catch (err) {
+        alert(err.message || 'Kunde inte ta bort konto');
+      }
+    }
+
+    function cancelDelete() {
+      document.getElementById('deleteModal').classList.add('hidden');
+      window._pendingDelete = null;
+    }
+
+    // ── Default Templates Management ───────────────────────────
+    let defaultTemplates = [];
+
+    async function loadDefaultTemplates() {
+      try {
+        const data = await Auth.api('/api/admin/default-templates');
+        defaultTemplates = data;
+        renderDefaultTemplates(data);
+      } catch (err) {
+        document.getElementById('defaultTemplatesList').innerHTML =
+          '<p class="text-red-500 text-center py-4">Kunde inte ladda standardmallen: ' + esc(err.message) + '</p>';
+      }
+    }
+
+    let _defaultSortables = [];
+
+    function renderDefaultTemplates(templates) {
+      const container = document.getElementById('defaultTemplatesList');
+      if (!templates || templates.length === 0) {
+        container.innerHTML = '<p class="text-text-soft text-center py-8 bg-sky rounded-2xl">Inga standardaktiviteter. Klicka "+ Ny aktivitet" för att lägga till.</p>';
+        return;
+      }
+
+      // Group by category
+      const grouped = {};
+      for (const t of templates) {
+        if (!grouped[t.category_name]) grouped[t.category_name] = [];
+        grouped[t.category_name].push(t);
+      }
+
+      const categoryOrder = ['Morgon', 'Förmiddag', 'Eftermiddag', 'Kväll'];
+      const allCategories = [...new Set([...categoryOrder, ...Object.keys(grouped)])];
+
+      container.innerHTML = allCategories
+        .filter(cat => grouped[cat] && grouped[cat].length > 0)
+        .map(cat => {
+          const items = grouped[cat].sort((a, b) => a.sort_order - b.sort_order);
+          return `
+            <div class="bg-sky rounded-2xl p-4 mb-3">
+              <h4 class="font-heading font-bold text-navy text-sm mb-2">${esc(cat)}</h4>
+              <div class="sortable-defaults space-y-1" data-category="${esc(cat)}">
+                ${items.map(t => `
+                  <div class="flex items-center gap-2 bg-white rounded-xl px-3 py-2 border border-gray-100" data-id="${t.id}">
+                    <span class="drag-handle text-text-soft text-sm select-none px-1">☰</span>
+                    <span class="text-lg">${esc(t.icon || '📌')}</span>
+                    <span class="flex-1 text-sm font-semibold text-navy">${esc(t.name)}</span>
+                    <span class="text-xs text-text-soft">⭐ ${t.star_value}</span>
+                    <button onclick="openEditDefaultModal('${t.id}')" class="p-1 hover:bg-lavender rounded-lg text-xs transition-colors">✏️</button>
+                    <button onclick="deleteDefaultTemplate('${t.id}')" class="p-1 hover:bg-coral rounded-lg text-xs transition-colors">🗑️</button>
+                  </div>
+                `).join('')}
+              </div>
+            </div>
+          `;
+        }).join('');
+
+      initDefaultTemplateDnD();
+    }
+
+    function initDefaultTemplateDnD() {
+      _defaultSortables.forEach(s => s.destroy());
+      _defaultSortables = [];
+      if (typeof Sortable === 'undefined') return;
+
+      document.querySelectorAll('.sortable-defaults').forEach(el => {
+        const s = new Sortable(el, {
+          animation: 200,
+          handle: '.drag-handle',
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          forceFallback: true,
+          onEnd: async function(evt) {
+            const items = Array.from(evt.from.querySelectorAll('[data-id]'));
+            const order = items.map((item, i) => ({ id: item.dataset.id, sort_order: i }));
+            try {
+              await Auth.api('/api/admin/default-templates/reorder', {
+                method: 'PUT',
+                body: JSON.stringify({ order }),
+              });
+            } catch (err) {
+              console.error('Reorder failed:', err);
+            }
+          },
+        });
+        _defaultSortables.push(s);
+      });
+    }
+
+    function openAddDefaultModal() {
+      document.getElementById('dtModalTitle').textContent = 'Ny standardaktivitet';
+      document.getElementById('dtId').value = '';
+      document.getElementById('dtName').value = '';
+      document.getElementById('dtIcon').value = '📌';
+      document.getElementById('dtStarValue').value = '1';
+      document.getElementById('dtCategory').value = 'Morgon';
+      document.getElementById('dtSortOrder').value = '0';
+      document.getElementById('dtMsg').textContent = '';
+      document.getElementById('defaultTemplateModal').classList.remove('hidden');
+    }
+
+    function openEditDefaultModal(id) {
+      const t = defaultTemplates.find(x => x.id === id);
+      if (!t) return;
+      document.getElementById('dtModalTitle').textContent = 'Redigera standardaktivitet';
+      document.getElementById('dtId').value = t.id;
+      document.getElementById('dtName').value = t.name;
+      document.getElementById('dtIcon').value = t.icon || '📌';
+      document.getElementById('dtStarValue').value = t.star_value;
+      document.getElementById('dtCategory').value = t.category_name;
+      document.getElementById('dtSortOrder').value = t.sort_order;
+      document.getElementById('dtMsg').textContent = '';
+      document.getElementById('defaultTemplateModal').classList.remove('hidden');
+    }
+
+    function closeDefaultModal() {
+      document.getElementById('defaultTemplateModal').classList.add('hidden');
+    }
+
+    async function submitDefaultTemplate() {
+      const id = document.getElementById('dtId').value;
+      const name = document.getElementById('dtName').value.trim();
+      const icon = document.getElementById('dtIcon').value.trim() || '📌';
+      const star_value = parseInt(document.getElementById('dtStarValue').value) || 1;
+      const category_name = document.getElementById('dtCategory').value;
+      const sort_order = parseInt(document.getElementById('dtSortOrder').value) || 0;
+      const msg = document.getElementById('dtMsg');
+
+      if (!name) { msg.textContent = 'Namn krävs'; msg.className = 'text-sm text-red-500'; return; }
+
+      try {
+        if (id) {
+          await Auth.api('/api/admin/default-templates/' + id, {
+            method: 'PUT',
+            body: JSON.stringify({ name, icon, category_name, star_value, sort_order }),
+          });
+        } else {
+          await Auth.api('/api/admin/default-templates', {
+            method: 'POST',
+            body: JSON.stringify({ name, icon, category_name, star_value, sort_order }),
+          });
+        }
+        closeDefaultModal();
+        await loadDefaultTemplates();
+      } catch (err) {
+        msg.textContent = err.message || 'Fel uppstod';
+        msg.className = 'text-sm text-red-500';
+      }
+    }
+
+    async function deleteDefaultTemplate(id) {
+      if (!confirm('Ta bort denna standardaktivitet?')) return;
+      try {
+        await Auth.api('/api/admin/default-templates/' + id, { method: 'DELETE' });
+        await loadDefaultTemplates();
+      } catch (err) {
+        alert(err.message || 'Kunde inte ta bort');
+      }
+    }
+
+    // Load defaults when section is shown
+    const origShowSection = showSection;
+    showSection = function(name) {
+      origShowSection(name);
+      if (name === 'defaults' && defaultTemplates.length === 0) {
+        loadDefaultTemplates();
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inloggning - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623',
+            'gold-light': '#FFF3D6',
+            navy: '#1B2340',
+            'navy-soft': '#2A3458',
+            sky: '#E8F0FE',
+            lavender: '#EDE7F6',
+            mint: '#E0F5EC',
+            coral: '#FDEAE7',
+            'text-soft': '#5A6178',
+          },
+          fontFamily: {
+            heading: ['Outfit', 'sans-serif'],
+            body: ['Plus Jakarta Sans', 'sans-serif'],
+          },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/theme.css">
+  <script src="/js/theme.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/i18n.js"></script>
+  <style>
+    /* WCAG 2.5.8: min 44×44px touch target for text links */
+    .touch-link { display: block; min-height: 44px; padding: 10px 4px; }
+    .touch-link a { display: block; }
+  </style>
+</head>
+<body class="bg-white font-body text-navy dark:bg-navy dark:text-white">
+  <div class="min-h-screen flex items-center justify-center px-4 py-8">
+    <div class="w-full max-w-md">
+      <!-- Header with Logo -->
+      <div class="text-center mb-8">
+        <a href="/" class="inline-flex items-center justify-center gap-2 hover:opacity-80 transition-opacity">
+          <div class="w-12 h-12 bg-gold rounded-full flex items-center justify-center shadow-md">
+            <span class="text-2xl">⭐</span>
+          </div>
+          <h1 class="text-3xl font-heading font-bold text-navy">Min Stjärndag</h1>
+        </a>
+        <p class="text-text-soft mt-2" data-i18n="auth.login.subtitle">Föräldrarnas inloggning</p>
+      </div>
+
+      <!-- Form Card -->
+      <div class="bg-sky rounded-2xl p-8 shadow-sm">
+        <form id="loginForm" class="space-y-6">
+          <!-- Email Field -->
+          <div>
+            <label for="email" class="block text-sm font-semibold text-navy mb-2" data-i18n="auth.login.email_label">
+              E-postadress
+            </label>
+            <input
+              type="email"
+              id="email"
+              name="email"
+              placeholder="din@epost.se"
+              required
+              data-i18n-placeholder="auth.login.email_placeholder"
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+          </div>
+
+          <!-- Password Field -->
+          <div>
+            <label for="password" class="block text-sm font-semibold text-navy mb-2" data-i18n="auth.login.password_label">
+              Lösenord
+            </label>
+            <input
+              type="password"
+              id="password"
+              name="password"
+              placeholder="••••••••"
+              required
+              data-i18n-placeholder="auth.login.password_placeholder"
+              class="w-full px-4 py-3 rounded-lg border-2 border-lavender focus:border-gold focus:outline-none bg-white text-navy placeholder-text-soft transition-colors"
+            />
+          </div>
+
+          <!-- Error Message -->
+          <div id="loginError" class="hidden bg-coral border-l-4 border-red-500 p-4 rounded">
+            <p id="loginErrorText" class="text-sm text-navy font-medium"></p>
+          </div>
+
+          <!-- Submit Button -->
+          <button
+            type="submit"
+            id="submitBtn"
+            class="w-full bg-gold hover:bg-yellow-500 text-white font-semibold py-3 rounded-lg transition-colors duration-200"
+            data-i18n="auth.login.submit"
+          >
+            Logga in
+          </button>
+        </form>
+
+        <!-- Links Section -->
+        <div class="mt-6 space-y-3 text-center text-sm">
+          <!-- Forgot Password Link -->
+          <div class="touch-link">
+            <a href="/forgot-password" class="text-gold font-semibold hover:underline" data-i18n="auth.login.forgot_password">
+              Glömt lösenordet?
+            </a>
+          </div>
+
+          <!-- Registration link — shown dynamically when registration is open -->
+          <div id="registerLinkSection" style="display:none;">
+            <div class="touch-link text-text-soft">
+              Inget konto?
+              <a href="/register" class="text-gold font-semibold hover:underline">
+                Registrera dig
+              </a>
+            </div>
+          </div>
+
+          <!-- Child Login Link -->
+          <div class="touch-link pt-2">
+            <span class="text-text-soft text-xs" data-i18n="auth.login.child_prompt">
+              Är du ett barn?
+            </span>
+            <a href="/child-login" class="text-gold font-semibold hover:underline block min-h-[44px] py-2" data-i18n="auth.login.child_link">
+              Barninloggning
+            </a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tagline -->
+      <div class="text-center mt-8">
+        <p class="text-text-soft text-sm" data-i18n="auth.login.tagline">
+          En lugn dag, en stjärna i taget
+        </p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // Redirect already-logged-in users — but VALIDATE the token first
+      // to avoid redirect loops when the token is stale/expired.
+      if (Auth.isLoggedIn()) {
+        try {
+          const res = await window.apiFetch('/api/auth/me');
+          if (res.ok) {
+            const user = Auth.getUser();
+            if (user && user.isAdmin) {
+              window.location.href = '/admin';
+            } else {
+              window.location.href = '/dashboard';
+            }
+            return;
+          } else {
+            // Token is invalid — clear it and show login form
+            Auth.clearAuth();
+          }
+        } catch {
+          // Network error or token invalid — clear and show login
+          Auth.clearAuth();
+        }
+      }
+
+      // Show registration link if registration is open
+      fetch('/api/registration-status')
+        .then(r => r.json())
+        .then(data => {
+          if (data.registration_enabled) {
+            const el = document.getElementById('registerLinkSection');
+            if (el) el.style.display = '';
+          }
+        })
+        .catch(() => {});
+
+      const form = document.getElementById('loginForm');
+      const submitBtn = document.getElementById('submitBtn');
+      const email = document.getElementById('email');
+      const password = document.getElementById('password');
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        // Basic validation
+        if (!email.value || !password.value) {
+          showError('loginError', 'Vänligen fyll i både e-post och lösenord');
+          return;
+        }
+
+        hideError('loginError');
+        setLoading(submitBtn, true);
+
+        try {
+          const response = await Auth.api('/api/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({
+              email: email.value,
+              password: password.value,
+            }),
+          });
+
+          if (response.token && response.user) {
+            Auth.setAuth(response.token, response.user);
+            setTimeout(() => {
+              Auth.redirectToDashboard();
+            }, 300);
+          } else {
+            throw new Error('Inloggningen misslyckades');
+          }
+        } catch (error) {
+          showError('loginError', error.message || 'Något gick fel. Vänligen försök igen.');
+        } finally {
+          setLoading(submitBtn, false);
+        }
+      });
+    });
+  </script>
+</body>
+</html>

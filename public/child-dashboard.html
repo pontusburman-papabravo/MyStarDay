@@ -1,0 +1,1409 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mitt Schema - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623', 'gold-light': '#FFF3D6', navy: '#1B2340', 'navy-soft': '#2A3458',
+            sky: '#E8F0FE', lavender: '#EDE7F6', mint: '#E0F5EC', coral: '#FDEAE7', 'text-soft': '#5A6178',
+          },
+          fontFamily: { heading: ['Outfit', 'sans-serif'], body: ['Plus Jakarta Sans', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/auth.js"></script>
+  <style>
+    .activity-card { transition: transform 0.15s ease, box-shadow 0.15s ease; }
+    .activity-card:active { transform: scale(0.97); }
+    .activity-card.done { opacity: 0.75; }
+    .activity-card.done .card-check { background: #22C55E; border-color: #22C55E; }
+    .drag-handle { touch-action: none; }
+    .sortable-ghost { opacity: 0.4; }
+    .sortable-chosen { box-shadow: 0 8px 24px rgba(0,0,0,0.18); transform: scale(1.02); }
+    .progress-fill {
+      transition: width 0.5s ease;
+      background: linear-gradient(90deg, #EF4444 0%, #F97316 25%, #EAB308 50%, #22C55E 75%, #10B981 100%);
+      background-size: 400% 100%;
+      animation: gradientShift 3s ease infinite;
+    }
+    @keyframes gradientShift {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .milestone-marker {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: rgba(255,255,255,0.5);
+      border-radius: 2px;
+      transform: translateX(-50%);
+    }
+    #milestoneToast {
+      animation: celebSlideUp 0.5s ease forwards, fadeOut 0.5s ease 2s forwards;
+    }
+    @keyframes fadeOut {
+      to { opacity: 0; transform: translateX(-50%) translateY(-10px); }
+    }
+    .milestone-burst {
+      animation: milestonePulse 0.5s ease;
+    }
+    @keyframes milestonePulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+      100% { transform: scale(1); }
+    }
+    .day-tab { transition: background 0.2s, color 0.2s; }
+    .day-tab.active { background: #F5A623; color: white; }
+    @keyframes starBounce { 0%,100% { transform: scale(1); } 50% { transform: scale(1.4) rotate(10deg); } }
+    .star-bounce { animation: starBounce 0.4s ease; }
+    @keyframes popIn { 0% { transform: scale(0.8); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+    .pop-in { animation: popIn 0.25s ease forwards; }
+    .star-btn { transition: transform 0.1s, color 0.1s; }
+    .star-btn:hover { transform: scale(1.3); }
+    .star-btn.selected { color: #F5A623; }
+    .star-btn.unselected { color: #EDE7F6; }
+
+    /* Drag-slider for child rating */
+    .mood-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 20px;
+      border-radius: 10px;
+      background: linear-gradient(to right, #EF4444 0%, #F97316 25%, #EAB308 50%, #22C55E 75%, #10B981 100%);
+      outline: none;
+      cursor: grab;
+      touch-action: pan-y;
+      margin: 10px 0;
+    }
+    .mood-slider:active { cursor: grabbing; }
+    .mood-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #F5A623;
+      cursor: grab;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+      transition: transform 0.1s, border-color 0.15s;
+    }
+    .mood-slider:active::-webkit-slider-thumb { transform: scale(1.15); cursor: grabbing; }
+    .mood-slider::-moz-range-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: white;
+      border: 3px solid #F5A623;
+      cursor: grab;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.25);
+    }
+    .face-mouth { transition: d 0.12s ease; }
+
+    /* Celebration overlay */
+    @keyframes confettiFall {
+      0%   { transform: translateY(-10px) rotate(0deg); opacity: 1; }
+      100% { transform: translateY(100vh) rotate(720deg); opacity: 0; }
+    }
+    @keyframes celebBounce {
+      0%, 100% { transform: scale(1); }
+      30% { transform: scale(1.3) rotate(-5deg); }
+      60% { transform: scale(1.1) rotate(3deg); }
+    }
+    @keyframes celebSlideUp {
+      from { transform: translateY(30px); opacity: 0; }
+      to   { transform: translateY(0);    opacity: 1; }
+    }
+    .confetti-piece {
+      position: fixed;
+      width: 10px;
+      height: 10px;
+      border-radius: 2px;
+      animation: confettiFall linear forwards;
+      pointer-events: none;
+      z-index: 9999;
+    }
+    .celeb-emoji { animation: celebBounce 0.8s ease infinite; display: inline-block; }
+    .celeb-slide  { animation: celebSlideUp 0.5s ease forwards; opacity: 0; }
+
+    /* ── NOW/NEXT/LATER Layout Styles ──────────────────── */
+    .now-card {
+      background: linear-gradient(135deg, #FFF9EE, #FFF0D0);
+      border-radius: 20px;
+      padding: 20px;
+      border: 2.5px solid #F5A623;
+      margin-bottom: 16px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 4px 20px rgba(245,166,35,0.2);
+    }
+    .now-card::before {
+      content: '';
+      position: absolute;
+      top: -20px;
+      right: -20px;
+      width: 80px;
+      height: 80px;
+      background: radial-gradient(circle, rgba(245,166,35,0.2) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+    .now-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #F5A623;
+      color: white;
+      font-size: 0.72rem;
+      font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 4px 10px;
+      border-radius: 50px;
+      margin-bottom: 12px;
+    }
+    .now-badge .pulse-dot {
+      width: 6px;
+      height: 6px;
+      background: white;
+      border-radius: 50%;
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.8); }
+    }
+    .now-activity {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      position: relative;
+      z-index: 2;
+    }
+    .now-emoji {
+      width: 56px;
+      height: 56px;
+      background: white;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.8rem;
+      box-shadow: 0 2px 8px rgba(27,35,64,0.08);
+      border: 1.5px solid rgba(245,166,35,0.2);
+      flex-shrink: 0;
+    }
+    .now-details { flex: 1; min-width: 0; }
+    .now-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      color: #1B2340;
+      margin-bottom: 4px;
+    }
+    .now-time {
+      font-size: 0.88rem;
+      color: #5A6178;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .now-check {
+      width: 48px;
+      height: 48px;
+      background: #F5A623;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      color: white;
+      box-shadow: 0 3px 12px rgba(245,166,35,0.4);
+      cursor: pointer;
+      border: none;
+      flex-shrink: 0;
+      transition: transform 0.1s, background 0.15s;
+    }
+    .now-check:active { transform: scale(0.95); background: #D4880A; }
+
+    .nl-card {
+      background: white;
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      box-shadow: 0 2px 8px rgba(27,35,64,0.08);
+      border: 1.5px solid transparent;
+      transition: all 0.2s;
+      cursor: pointer;
+    }
+    .nl-card:hover { border-color: rgba(245,166,35,0.3); transform: translateY(-1px); }
+    .nl-card.done { opacity: 0.75; }
+    .nl-card.past-card { opacity: 0.6; background: #FAFAFA; }
+    .nl-card .nl-emoji {
+      width: 40px;
+      height: 40px;
+      min-width: 40px;
+      background: #E8F0FE;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      flex-shrink: 0;
+    }
+    .nl-card.next-card .nl-emoji { background: #EDE9FF; }
+    .nl-card.later-card .nl-emoji { background: #E0F5EC; }
+    .nl-chip {
+      font-size: 0.62rem;
+      font-weight: 700;
+      font-family: 'Outfit', sans-serif;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 2px 8px;
+      border-radius: 50px;
+      margin-bottom: 6px;
+      display: inline-block;
+    }
+    .chip-next { background: #EDE9FF; color: #6B50F5; }
+    .chip-later { background: #D1FAE5; color: #059669; }
+    .chip-redan { background: #FEE2E2; color: #DC2626; }
+    .nl-info { flex: 1; min-width: 0; }
+    .nl-title {
+      font-family: 'Outfit', sans-serif;
+      font-weight: 600;
+      font-size: 0.88rem;
+      color: #1B2340;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .nl-time {
+      font-size: 0.75rem;
+      color: #9AA0B8;
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+    .nl-section-label {
+      font-family: 'Outfit', sans-serif;
+      font-size: 0.68rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: #9AA0B8;
+      margin-bottom: 8px;
+      padding-left: 4px;
+    }
+
+    /* ── Print styles ────────────────────────────────── */
+    @media print {
+      @page { size: A4 portrait; margin: 12mm; }
+      * { color-scheme: light !important; }
+      body { background: white !important; color: #1B2340 !important; }
+      nav, #milestoneToast, #ratingModal,
+      button[onclick*="logout"], button[onclick*="DarkMode"], button[onclick*="print"] { display: none !important; }
+      .sticky { position: static !important; }
+      .bg-white.border-b { border: none !important; }
+      #dayTabs button { border: 1px solid #ccc !important; background: white !important; color: #1B2340 !important; }
+      #dayTabs button.active { background: #F5A623 !important; color: white !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .activity-card { border: 1px solid #ccc !important; background: white !important; box-shadow: none !important; page-break-inside: avoid; color: #1B2340 !important; }
+      .activity-card.done { opacity: 1 !important; }
+      .activity-card.done .card-check { background: #22C55E !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .progress-fill { background: #666 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      /* Show child name + date as print header */
+      #childName, #childEmoji, #childDateLine { color: #1B2340 !important; }
+      /* Header: white bg with border for print */
+      .bg-navy.text-white { background: white !important; color: #1B2340 !important; border-bottom: 2px solid #1B2340; }
+      /* Dark mode reset for print */
+      [class*="dark:bg-navy"] { background: white !important; color: #1B2340 !important; }
+    }
+  </style>
+</head>
+<body class="bg-sky font-body text-navy min-h-screen dark:bg-navy dark:text-white">
+  <!-- Header -->
+  <div class="bg-navy text-white px-4 py-3 sticky top-0 z-10">
+    <div class="flex items-center justify-between max-w-lg mx-auto">
+      <div class="flex items-center gap-2">
+        <span class="text-2xl" id="childEmoji">⭐</span>
+        <div>
+          <h1 class="text-lg font-heading font-bold leading-tight" id="childName">Mitt schema</h1>
+          <p class="text-xs text-white/60" id="childDateLine"></p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="window.print()" class="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 hover:bg-navy-soft rounded-lg transition-colors text-lg" title="Skriv ut">🖨️</button>
+        <button onclick="toggleChildDarkMode()" id="childDarkBtn" class="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 hover:bg-navy-soft rounded-lg transition-colors text-lg" title="Mörkt läge">🌙</button>
+        <span class="w-px h-5 bg-white/20 mx-1"></span>
+        <button onclick="Auth.logout()" class="min-h-[44px] flex items-center justify-center gap-1.5 px-3 py-2 bg-white/10 hover:bg-white/20 text-white/70 hover:text-white rounded-lg text-sm font-semibold transition-colors" title="Logga ut">
+          <span>🚪</span>
+          <span>Logga ut</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Week Navigation + Day Tabs -->
+  <div class="bg-white border-b border-lavender sticky top-[60px] z-10">
+    <div class="flex items-center gap-1 px-2 pt-2 max-w-lg mx-auto">
+      <button onclick="navigateWeek(-1)" class="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-lg bg-sky hover:bg-lavender text-navy font-bold text-lg transition-colors" title="Föregående vecka">‹</button>
+      <div class="flex-1 text-center text-xs font-semibold text-text-soft" id="weekLabel"></div>
+      <button onclick="navigateWeek(1)" class="flex-shrink-0 w-11 h-11 flex items-center justify-center rounded-lg bg-sky hover:bg-lavender text-navy font-bold text-lg transition-colors" title="Nästa vecka">›</button>
+    </div>
+    <div class="flex gap-1 p-2 max-w-lg mx-auto overflow-x-auto" id="dayTabs"></div>
+  </div>
+
+  <!-- Progress Bar -->
+  <div class="bg-white px-4 py-3 border-b border-lavender">
+    <div class="max-w-lg mx-auto">
+      <div class="flex items-center justify-between mb-1">
+        <span class="text-sm font-semibold text-navy" id="progressLabel">0 av 0 klara</span>
+        <span class="text-sm font-heading font-bold text-gold" id="starCount">⭐ 0</span>
+      </div>
+      <div class="w-full bg-lavender rounded-full h-4 overflow-hidden relative" id="progressBarContainer">
+        <div class="progress-fill h-4 rounded-full" id="progressBar" style="width:0%"></div>
+        <!-- Milestone markers -->
+        <div class="absolute inset-0 flex items-center pointer-events-none">
+          <div class="milestone-marker" style="left:25%" title="25%"></div>
+          <div class="milestone-marker" style="left:50%" title="50%"></div>
+          <div class="milestone-marker" style="left:75%" title="75%"></div>
+        </div>
+      </div>
+      <!-- Milestone celebration toast -->
+      <div id="milestoneToast" class="hidden fixed top-20 left-1/2 -translate-x-1/2 z-50 bg-gradient-to-r from-yellow-400 via-orange-400 to-gold text-navy px-6 py-3 rounded-2xl shadow-xl font-heading font-bold text-sm max-w-xs text-center celeb-slide"></div>
+    </div>
+  </div>
+
+  <!-- Tab Nav: Schema / Belöningar -->
+  <div class="bg-white border-b border-lavender">
+    <div class="flex max-w-lg mx-auto">
+      <button id="tabSchedule" onclick="showTab('schedule')" class="flex-1 py-3 text-sm font-semibold border-b-2 border-gold text-gold transition-colors">📅 Schema</button>
+      <button id="tabRewards" onclick="showTab('rewards')" class="flex-1 py-3 text-sm font-semibold border-b-2 border-transparent text-text-soft transition-colors">🎁 Belöningar</button>
+    </div>
+  </div>
+
+  <!-- Schedule View -->
+  <div id="scheduleView" class="p-4 max-w-lg mx-auto pb-20">
+    <div class="text-center py-16">
+      <p class="text-4xl mb-3">⏳</p>
+      <p class="text-text-soft">Laddar ditt schema...</p>
+    </div>
+  </div>
+
+  <!-- Rewards View -->
+  <div id="rewardsView" class="hidden p-4 max-w-lg mx-auto pb-20">
+    <div class="text-center py-16">
+      <p class="text-4xl mb-3">⏳</p>
+      <p class="text-text-soft">Laddar belöningar...</p>
+    </div>
+  </div>
+
+  <!-- Rating Modal (child: drag-slider 1–10 + morphing face) -->
+  <div id="ratingModal" class="hidden fixed inset-0 bg-black/60 flex items-end sm:items-center justify-center z-50 p-4">
+    <div class="pop-in bg-white rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div class="text-center mb-3">
+        <div class="text-4xl mb-1" id="ratingActivityIcon">⭐</div>
+        <h3 class="text-lg font-heading font-bold text-navy">Hur gick det?</h3>
+        <p class="text-sm text-text-soft" id="ratingActivityName">Aktivitet</p>
+      </div>
+
+      <!-- Morphing face -->
+      <div class="flex justify-center mb-3">
+        <svg id="moodFace" viewBox="0 0 100 100" width="120" height="120" class="face-svg">
+          <!-- Face background circle -->
+          <circle cx="50" cy="50" r="47" id="faceBg" fill="#FFF3D6" stroke="#F5A623" stroke-width="3"/>
+          <!-- Left eye -->
+          <ellipse cx="35" cy="40" rx="5" ry="5" fill="#1B2340" id="eyeLeft"/>
+          <!-- Right eye -->
+          <ellipse cx="65" cy="40" rx="5" ry="5" fill="#1B2340" id="eyeRight"/>
+          <!-- Eyebrows -->
+          <path id="browLeft" d="M 27 30 Q 35 26 43 30" fill="none" stroke="#1B2340" stroke-width="3" stroke-linecap="round"/>
+          <path id="browRight" d="M 57 30 Q 65 26 73 30" fill="none" stroke="#1B2340" stroke-width="3" stroke-linecap="round"/>
+          <!-- Mouth -->
+          <path id="mouthPath" d="M 32 65 Q 50 55 68 65" fill="none" stroke="#1B2340" stroke-width="4" stroke-linecap="round"/>
+          <!-- Rosy cheeks (only visible at high scores) -->
+          <ellipse cx="22" cy="58" rx="8" ry="5" fill="#FFB3B3" opacity="0" id="cheekLeft"/>
+          <ellipse cx="78" cy="58" rx="8" ry="5" fill="#FFB3B3" opacity="0" id="cheekRight"/>
+        </svg>
+      </div>
+
+      <!-- Score display -->
+      <div class="text-center mb-3">
+        <span class="text-4xl font-heading font-bold" id="scoreDisplay" style="color:#F5A623">5</span>
+        <span class="text-lg font-semibold text-text-soft">/10</span>
+        <p class="text-sm font-semibold text-text-soft mt-1" id="scoreLabel">Okej 😐</p>
+      </div>
+
+      <!-- Drag slider -->
+      <div class="px-2 mb-4">
+        <div class="flex justify-between text-xs text-text-soft mb-1 px-1">
+          <span>😢 Svårt</span>
+          <span>🌟 Fantastiskt</span>
+        </div>
+        <input type="range" min="1" max="10" value="5" step="1"
+          class="mood-slider w-full"
+          id="moodSlider"
+          oninput="updateMoodSlider(parseInt(this.value))"
+          onchange="ratingScore = parseInt(this.value)">
+      </div>
+
+      <!-- Optional comment -->
+      <textarea id="ratingComment" placeholder="Vill du berätta något? 💬 (valfritt)" rows="2"
+        class="w-full px-3 py-2 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors resize-none mb-4"></textarea>
+
+      <div class="flex gap-3">
+        <button onclick="dismissRating()" class="flex-1 py-3 bg-lavender hover:bg-sky text-navy rounded-xl font-semibold transition-colors text-sm">Hoppa över</button>
+        <button onclick="submitRating()" id="ratingSubmitBtn" class="flex-1 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors text-sm">Spara ⭐</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const DAY_NAMES = ['Söndag', 'Måndag', 'Tisdag', 'Onsdag', 'Torsdag', 'Fredag', 'Lördag'];
+    const DAY_SHORT = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
+    const MONTH_NAMES = ['jan', 'feb', 'mar', 'apr', 'maj', 'jun', 'jul', 'aug', 'sep', 'okt', 'nov', 'dec'];
+    const SCORE_LABELS = ['', 'Jättesvårt 😢', 'Svårt 😞', 'Lite svårt 😕', 'Okej 😐', 'Ganska bra 🙂', 'Bra 😊', 'Jättebra 😄', 'Superbra 😁', 'Nästan perfekt 🤩', 'Fantastiskt! 🌟'];
+
+    let currentDate = null;
+    let todayStr = null;
+    let me = null;
+    let itemRatings = {}; // itemId -> { child_score, child_comment, parent_score, parent_comment }
+    let weekOffset = 0; // 0 = current week, -1 = last week, +1 = next week
+    let allowChildReorder = false; // toggled by parent in child profile settings
+
+    // ── Rating modal state ─────────────────────────────────
+    let ratingItemId = null;
+    let ratingItemIcon = null;
+    let ratingItemName = null;
+    let ratingScore = 0;
+
+    // ── Date helpers ───────────────────────────────────────
+
+    function getLocalDate(offset = 0) {
+      const d = new Date();
+      d.setDate(d.getDate() + offset);
+      return d.toLocaleDateString('sv-SE');
+    }
+
+    function formatDateDisplay(dateStr) {
+      const d = new Date(dateStr + 'T12:00:00');
+      const dow = d.getDay();
+      const day = d.getDate();
+      const mon = MONTH_NAMES[d.getMonth()];
+      return `${DAY_NAMES[dow]} ${day} ${mon}`;
+    }
+
+    function calcAge(birthday) {
+      if (!birthday) return null;
+      const bday = new Date(birthday);
+      const today = new Date();
+      let age = today.getFullYear() - bday.getFullYear();
+      const m = today.getMonth() - bday.getMonth();
+      if (m < 0 || (m === 0 && today.getDate() < bday.getDate())) age--;
+      return age;
+    }
+
+    function getSectionLabel(section) {
+      const labels = { morgon: '🌅 Morgon', dag: '☀️ Dag', kvall: '🌆 Kväll', natt: '🌙 Natt' };
+      return labels[section] || section;
+    }
+
+    // ── Time utilities for NOW/NEXT/LATER logic ─────────────
+
+    function getCurrentTimeHHMM() {
+      const now = new Date();
+      const hh = String(now.getHours()).padStart(2, '0');
+      const mm = String(now.getMinutes()).padStart(2, '0');
+      return `${hh}:${mm}`;
+    }
+
+    function getTimeMinutes(timeStr) {
+      // Convert "HH:MM" or "HH:MM–HH:MM" to minutes since midnight
+      if (!timeStr) return null;
+      const clean = timeStr.split('–')[0].trim();
+      const parts = clean.split(':');
+      if (parts.length < 2) return null;
+      return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+    }
+
+    // Classify activities into NOW / NEXT / LATER based on current time
+    // completed items are excluded from remaining-activities classification
+    function classifyActivities(items, currentTimeStr) {
+      const currentMins = getTimeMinutes(currentTimeStr);
+      const now = [];
+      const next = [];
+      const laterFuture = []; // future uncompleted → normal LATER
+      const laterPast = [];   // past uncompleted → "Redan" chip
+
+      for (const item of items) {
+        // Skip completed — they are handled separately
+        if (item.completed) continue;
+
+        const startMins = getTimeMinutes(item.start_time);
+        const endMins = getTimeMinutes(item.end_time);
+
+        // Activity with no time → goes to future LATER (no time-based ordering)
+        if (startMins === null) {
+          laterFuture.push({ ...item, _view: 'later', _past: false });
+          continue;
+        }
+
+        // Check if currently happening
+        if (currentMins !== null) {
+          if (endMins !== null) {
+            if (currentMins >= startMins && currentMins <= endMins) {
+              now.push({ ...item, _view: 'now', _past: false });
+              continue;
+            }
+          } else {
+            if (currentMins >= startMins && currentMins <= startMins + 30) {
+              now.push({ ...item, _view: 'now', _past: false });
+              continue;
+            }
+          }
+        }
+
+        // Future activity (start time is in the future)
+        if (currentMins !== null && startMins > currentMins) {
+          if (!next.length) {
+            next.push({ ...item, _view: 'next', _past: false });
+          } else {
+            laterFuture.push({ ...item, _view: 'later', _past: false });
+          }
+          continue;
+        }
+
+        // Past uncompleted (start was before current time, not currently happening)
+        laterPast.push({ ...item, _view: 'later', _past: true });
+      }
+
+      return { now, next, laterFuture, laterPast };
+    }
+
+    // ── Day tabs ───────────────────────────────────────────
+
+    function renderDayTabs() {
+      const container = document.getElementById('dayTabs');
+      const today = new Date();
+      const todayDow = today.getDay();
+      const mondayOffset = todayDow === 0 ? -6 : 1 - todayDow;
+
+      const days = [];
+      for (let i = 0; i < 7; i++) {
+        const d = new Date(today);
+        d.setDate(today.getDate() + mondayOffset + i + (weekOffset * 7));
+        const dateStr = d.toLocaleDateString('sv-SE');
+        const isToday = dateStr === todayStr;
+        const dow = d.getDay();
+        days.push({ dateStr, dow, isToday, dayNum: d.getDate(), month: d.getMonth() });
+      }
+
+      // Update week label
+      const weekLabel = document.getElementById('weekLabel');
+      if (weekLabel) {
+        const first = days[0];
+        const last = days[6];
+        if (weekOffset === 0) {
+          weekLabel.textContent = 'Denna vecka';
+        } else {
+          weekLabel.textContent = `${first.dayNum} ${MONTH_NAMES[first.month]} – ${last.dayNum} ${MONTH_NAMES[last.month]}`;
+        }
+      }
+
+      container.innerHTML = days.map(d => `
+        <button
+          class="day-tab flex-shrink-0 px-3 py-2 rounded-lg text-xs font-semibold text-center min-w-[44px] ${d.dateStr === currentDate ? 'active' : 'bg-sky text-navy hover:bg-lavender'}"
+          onclick="loadDay('${d.dateStr}')"
+        >
+          <div>${DAY_SHORT[d.dow]}</div>
+          <div class="text-base font-bold">${d.dayNum}</div>
+          ${d.isToday ? '<div class="text-[9px] opacity-75">idag</div>' : ''}
+        </button>
+      `).join('');
+    }
+
+    function navigateWeek(direction) {
+      weekOffset += direction;
+      // Select Monday of the new week
+      const today = new Date();
+      const todayDow = today.getDay();
+      const mondayOffset = todayDow === 0 ? -6 : 1 - todayDow;
+      const monday = new Date(today);
+      monday.setDate(today.getDate() + mondayOffset + (weekOffset * 7));
+      const newDate = monday.toLocaleDateString('sv-SE');
+      loadDay(newDate);
+    }
+
+    function updateDateLine() {
+      const el = document.getElementById('childDateLine');
+      if (el) {
+        el.textContent = formatDateDisplay(currentDate || todayStr);
+      }
+    }
+
+    // ── Tabs ───────────────────────────────────────────────
+
+    let rewardsLoaded = false;
+
+    function showTab(tab) {
+      const sv = document.getElementById('scheduleView');
+      const rv = document.getElementById('rewardsView');
+      const ts = document.getElementById('tabSchedule');
+      const tr = document.getElementById('tabRewards');
+      if (tab === 'schedule') {
+        sv.classList.remove('hidden'); rv.classList.add('hidden');
+        ts.classList.add('border-gold', 'text-gold'); ts.classList.remove('border-transparent', 'text-text-soft');
+        tr.classList.remove('border-gold', 'text-gold'); tr.classList.add('border-transparent', 'text-text-soft');
+      } else {
+        sv.classList.add('hidden'); rv.classList.remove('hidden');
+        tr.classList.add('border-gold', 'text-gold'); tr.classList.remove('border-transparent', 'text-text-soft');
+        ts.classList.remove('border-gold', 'text-gold'); ts.classList.add('border-transparent', 'text-text-soft');
+        if (!rewardsLoaded) loadRewards();
+      }
+    }
+
+    // ── Rewards ────────────────────────────────────────────
+
+    async function loadRewards() {
+      const container = document.getElementById('rewardsView');
+      try {
+        const data = await Auth.api('/api/me/rewards');
+        rewardsLoaded = true;
+        renderRewards(data, container);
+      } catch (err) {
+        container.innerHTML = '<div class="text-center py-12"><p class="text-4xl mb-3">😕</p><p class="text-text-soft">Kunde inte ladda belöningar.</p></div>';
+      }
+    }
+
+    function renderRewards(data, container) {
+      const { rewards, starBalance, redemptions } = data;
+      const pending = redemptions.filter(r => r.status === 'pending');
+
+      let html = '';
+
+      // Star balance banner
+      html += '<div class="bg-gold-light rounded-2xl p-4 mb-4 text-center"><p class="text-3xl font-heading font-bold text-navy">⭐ ' + starBalance + '</p><p class="text-sm text-text-soft">tillgängliga stjärnor</p></div>';
+
+      // Pending
+      if (pending.length > 0) {
+        html += '<div class="mb-4"><h3 class="text-sm font-heading font-bold text-text-soft uppercase tracking-wider mb-2">Väntar på godkännande</h3>';
+        for (const r of pending) {
+          html += '<div class="bg-lavender rounded-xl p-3 mb-2 flex items-center gap-3"><span class="text-2xl">' + (r.reward_icon || '🎁') + '</span><div class="flex-1"><p class="font-semibold text-navy text-sm">' + escHtml(r.reward_name) + '</p><p class="text-xs text-text-soft">Väntar ⏳</p></div></div>';
+        }
+        html += '</div>';
+      }
+
+      // Available rewards
+      if (rewards.length === 0) {
+        html += '<div class="text-center py-12 bg-white rounded-2xl"><p class="text-5xl mb-3">🎁</p><p class="font-heading font-bold text-navy mb-2">Inga belöningar ännu!</p><p class="text-text-soft text-sm">Be din förälder att skapa belöningar i inställningarna 🌟</p></div>';
+      } else {
+        html += '<div class="mb-4"><h3 class="text-sm font-heading font-bold text-text-soft uppercase tracking-wider mb-2">Tillgängliga belöningar</h3><div class="space-y-3">';
+        for (const r of rewards) {
+          const canAfford = starBalance >= r.star_cost;
+          const hasPending = redemptions.some(rd => rd.reward_name === r.name && rd.status === 'pending');
+          html += '<div class="bg-white rounded-xl p-4 shadow-sm border-2 ' + (canAfford ? 'border-gold/30' : 'border-transparent') + ' flex items-center gap-3">';
+          html += '<span class="text-3xl">' + (r.icon || '🎁') + '</span>';
+          html += '<div class="flex-1"><p class="font-heading font-bold text-base text-navy">' + escHtml(r.name) + '</p><p class="text-xs text-text-soft">⭐ ' + r.star_cost + ' stjärnor' + (r.requires_approval ? ' · Kräver godkännande' : '') + '</p></div>';
+          if (hasPending) {
+            html += '<span class="text-xs bg-lavender text-navy px-2 py-1 rounded-lg">Väntar ⏳</span>';
+          } else if (canAfford) {
+            html += '<button onclick="redeemReward(\'' + r.id + '\')" class="bg-gold hover:bg-yellow-500 text-white text-sm font-semibold px-3 py-2 rounded-lg transition-colors">Lös in</button>';
+          } else {
+            html += '<span class="text-xs text-text-soft bg-lavender px-2 py-1 rounded-lg">Saknar ' + (r.star_cost - starBalance) + ' ⭐</span>';
+          }
+          html += '</div>';
+        }
+        html += '</div></div>';
+      }
+
+      // History
+      const history = redemptions.filter(r => r.status !== 'pending').slice(0, 5);
+      if (history.length > 0) {
+        html += '<div class="mt-4"><h3 class="text-sm font-heading font-bold text-text-soft uppercase tracking-wider mb-2">Historik</h3>';
+        for (const r of history) {
+          const icon = (r.status === 'approved' || r.status === 'auto') ? '✅' : '❌';
+          const label = r.status === 'approved' ? 'Godkänd' : r.status === 'auto' ? 'Inlöst' : 'Nekad';
+          html += '<div class="flex items-center gap-3 py-2 border-b border-lavender last:border-0"><span class="text-xl">' + (r.reward_icon || '🎁') + '</span><div class="flex-1"><p class="text-sm font-semibold text-navy">' + escHtml(r.reward_name) + '</p></div><span class="text-xs text-text-soft">' + icon + ' ' + label + '</span></div>';
+        }
+        html += '</div>';
+      } else if (rewards.length > 0) {
+        html += '<div class="text-center py-6 text-text-soft"><p class="text-3xl mb-2">📜</p><p class="text-sm">Ingen historik ännu — börja bocka av!</p></div>';
+      }
+
+      container.innerHTML = html;
+    }
+
+    async function redeemReward(rewardId) {
+      try {
+        const data = await Auth.api('/api/me/rewards/' + rewardId + '/redeem', { method: 'POST' });
+        rewardsLoaded = false;
+        await loadRewards();
+        showToast(data.message);
+      } catch (err) {
+        alert(err.message || 'Kunde inte lösa in.');
+      }
+    }
+
+    // ── Milestone tracking ──────────────────────────────
+    // Each milestone fires once per child per day
+    // Stored in localStorage as { childId_date: [25, 50, 75, 100] }
+
+    function getMilestoneStorageKey() {
+      const childId = me ? me.id : 'default';
+      return `milestones_${childId}_${currentDate}`;
+    }
+
+    function getTriggeredMilestones() {
+      try {
+        const stored = localStorage.getItem(getMilestoneStorageKey());
+        return stored ? JSON.parse(stored) : [];
+      } catch { return []; }
+    }
+
+    function markMilestoneTriggered(milestone) {
+      try {
+        const existing = getTriggeredMilestones();
+        if (!existing.includes(milestone)) {
+          existing.push(milestone);
+          localStorage.setItem(getMilestoneStorageKey(), JSON.stringify(existing));
+        }
+      } catch {}
+    }
+
+    function checkMilestones(total, completed) {
+      if (total === 0) return;
+      const pct = Math.round((completed / total) * 100);
+      const triggered = getTriggeredMilestones();
+
+      // Check each milestone threshold
+      const milestones = [
+        { pct: 25, message: 'Bra jobbat! Första steget! 🌟', emoji: '🌟', delay: 100 },
+        { pct: 50, message: 'Halvvägs! Du är fantastisk! 🎉', emoji: '🎉', delay: 100 },
+        { pct: 75, message: ' Nästan där! Bra fortsatt! 🔥', emoji: '🔥', delay: 100 },
+      ];
+
+      for (const m of milestones) {
+        if (pct >= m.pct && !triggered.includes(m.pct)) {
+          markMilestoneTriggered(m.pct);
+          setTimeout(() => showMilestoneCelebration(m.message, m.emoji), m.delay);
+        }
+      }
+    }
+
+    function showMilestoneCelebration(message, emoji) {
+      // Show toast
+      const toast = document.getElementById('milestoneToast');
+      if (toast) {
+        toast.innerHTML = `<div class="text-2xl mb-1">${emoji}</div><div>${message}</div>`;
+        toast.classList.remove('hidden');
+        setTimeout(() => {
+          toast.classList.add('hidden');
+          toast.style.animation = '';
+        }, 2500);
+      }
+      // Pulse the progress bar
+      const bar = document.getElementById('progressBar');
+      const container = document.getElementById('progressBarContainer');
+      if (bar) { bar.classList.add('milestone-burst'); setTimeout(() => bar.classList.remove('milestone-burst'), 500); }
+      if (container) { container.classList.add('milestone-burst'); setTimeout(() => container.classList.remove('milestone-burst'), 500); }
+      // Small confetti burst
+      launchMilestoneConfetti();
+    }
+
+    function launchMilestoneConfetti() {
+      const COLORS = ['#F5A623', '#22C55E', '#3B82F6', '#A855F7', '#EF4444', '#F59E0B'];
+      const SHAPES = ['✨', '⭐', '🌟', '★'];
+      const count = 30;
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+          const el = document.createElement('span');
+          if (Math.random() < 0.4) {
+            el.textContent = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+            el.style.cssText = `position:fixed;left:${10 + Math.random() * 80}vw;top:-20px;font-size:${10 + Math.random() * 14}px;pointer-events:none;z-index:9999;animation:confettiFall ${1.5 + Math.random() * 1.5}s linear forwards;`;
+          } else {
+            el.className = 'confetti-piece';
+            el.style.left = `${10 + Math.random() * 80}vw`;
+            el.style.top = '-10px';
+            el.style.backgroundColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+            el.style.width = `${6 + Math.random() * 8}px`;
+            el.style.height = `${6 + Math.random() * 8}px`;
+            el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            el.style.animationDuration = `${1.5 + Math.random() * 1.5}s`;
+            document.body.appendChild(el);
+            el.addEventListener('animationend', () => el.remove());
+          }
+          document.body.appendChild(el);
+          el.addEventListener('animationend', () => el.remove());
+        }, i * 40);
+      }
+    }
+
+    // ── Schedule / Activities ──────────────────────────────
+
+    function renderActivities(data, trueStarBalance) {
+      const container = document.getElementById('scheduleView');
+      const items = data.items || [];
+      const isToday = currentDate === todayStr;
+
+      const total = items.length;
+      const completed = items.filter(i => i.completed).length;
+      const stars = items.filter(i => i.completed).reduce((s, i) => s + (i.star_value || 1), 0);
+      const displayBalance = trueStarBalance !== undefined ? trueStarBalance : stars;
+
+      document.getElementById('progressLabel').textContent = `${completed} av ${total} klara`;
+      document.getElementById('starCount').textContent = `⭐ ${displayBalance}`;
+      const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
+      document.getElementById('progressBar').style.width = `${pct}%`;
+      if (isToday) {
+        checkMilestones(total, completed);
+      }
+
+      if (items.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-16 bg-white rounded-2xl mt-2">
+            <p class="text-6xl mb-4">${isToday ? '🌟' : '📅'}</p>
+            <p class="text-xl font-heading font-bold text-navy mb-2">${isToday ? 'Inga aktiviteter idag!' : 'Inget schema den här dagen'}</p>
+            <p class="text-text-soft text-sm">${isToday ? 'Njut av din lediga dag ⭐' : 'Välj en annan dag för att se schemat'}</p>
+          </div>`;
+        return;
+      }
+
+      let html = '';
+
+      if (isToday) {
+        // ── NOW / NEXT / LATER layout (today only) ─────────────
+        const currentTime = getCurrentTimeHHMM();
+        const { now, next, laterFuture, laterPast } = classifyActivities(items, currentTime);
+
+        // NU (current activity)
+        if (now.length > 0) {
+          for (const item of now) {
+            html += renderNowCard(item, true);
+          }
+        }
+
+        // NÄSTA (next activity)
+        if (next.length > 0) {
+          html += '<div class="nl-section-label">▶ Nästa</div>';
+          for (const item of next) {
+            html += renderNLCard(item, 'next', false);
+          }
+          html += '<div class="mb-4"></div>';
+        }
+
+        // SEDAN (future uncompleted activities)
+        if (laterFuture.length > 0) {
+          html += '<div class="nl-section-label">▶ Sedan</div>';
+          for (const item of laterFuture) {
+            html += renderNLCard(item, 'later', false);
+          }
+        }
+
+        // Redan (past uncompleted — missed before current time)
+        if (laterPast.length > 0) {
+          html += '<div class="nl-section-label">⏮ Redan</div>';
+          for (const item of laterPast) {
+            html += renderNLCard(item, 'past', false);
+          }
+        }
+
+        // Celebration
+        if (completed === total && total > 0) {
+          const celebEmojis = ['🌟', '🎉', '⭐', '🏆', '🎈', '🌈', '🥳'];
+          const mainEmoji = celebEmojis[Math.floor(Math.random() * celebEmojis.length)];
+          const messages = [
+            'Du är en stjärna! ⭐', 'Fantastiskt jobbat! 🙌', 'Vilken superdag! 🚀',
+            'Du klarade allt! 🎯', 'Imponerande! 💪', 'Duktig! Helt otroligt! 🏅', 'Alla bockar! Wooho! 🎊',
+          ];
+          const msg = messages[Math.floor(Math.random() * messages.length)];
+          html += `<div class="text-center py-10 bg-gradient-to-br from-gold-light to-mint rounded-2xl mt-4 celeb-slide" id="celebCard">
+            <div class="text-7xl mb-4 celeb-emoji">${mainEmoji}</div>
+            <h3 class="text-2xl font-heading font-bold text-navy mb-2">Alla klara!</h3>
+            <p class="text-text-soft text-base mb-3">${msg}</p>
+            <div class="inline-flex items-center gap-2 bg-white/70 rounded-full px-5 py-2 font-heading font-bold text-navy">
+              ⭐ Du samlade ${stars} stjärnor idag!
+            </div>
+          </div>`;
+          setTimeout(() => launchConfetti(), 200);
+        }
+
+      } else {
+        // ── Section-based layout (past days / future days) ───────
+        const sectionOrder = ['morgon', 'dag', 'kvall', 'natt'];
+        const sections = {};
+        for (const item of items) {
+          const s = item.section || 'dag';
+          if (!sections[s]) sections[s] = [];
+          sections[s].push(item);
+        }
+
+        for (const section of sectionOrder) {
+          if (!sections[section]) continue;
+          html += `<div class="mb-6" data-section="${section}">
+            <h3 class="text-sm font-heading font-bold text-text-soft uppercase tracking-wider mb-3">${getSectionLabel(section)}</h3>
+            <div class="sortable-section space-y-3" data-sortable-section="${section}">`;
+          for (const item of sections[section]) {
+            html += renderActivityCard(item, isToday);
+          }
+          html += '</div></div>';
+        }
+
+        // Initialize SortableJS on section containers (if reorder is allowed)
+        setTimeout(() => initChildSortable(), 50);
+      }
+
+      container.innerHTML = html;
+    }
+
+    // ── NOW card (large, featured) ──────────────────────────
+
+    function renderNowCard(item, canToggle) {
+      const isDone = item.completed;
+      const timeStr = item.start_time ? (item.end_time ? `${item.start_time}–${item.end_time}` : item.start_time) : '';
+      const checkAttr = canToggle && !isDone ? `onclick="toggleItem('${item.id}', false)"` : '';
+
+      return `
+        <div class="now-card ${isDone ? 'done' : ''}" id="card-${item.id}"
+             data-feedback-for="${item.feedback_for || 'both'}"
+             data-item-icon="${item.icon || '⭐'}"
+             data-item-name="${escHtml(item.name)}"
+             data-item-id="${item.id}">
+          <div class="now-badge"><div class="pulse-dot"></div> Pågående</div>
+          <div class="now-activity">
+            <div class="now-emoji">${item.icon || '⭐'}</div>
+            <div class="now-details">
+              <div class="now-title ${isDone ? 'line-through text-text-soft' : ''}">${escHtml(item.name)}</div>
+              ${timeStr ? `<div class="now-time"><span>🕐</span> ${timeStr}</div>` : ''}
+            </div>
+            ${isDone
+              ? `<div class="now-check" style="background:#22C55E;"><svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>`
+              : `<button class="now-check" ${checkAttr}>&#10003;</button>`
+            }
+          </div>
+        </div>`;
+    }
+
+    // ── NEXT / LATER / PAST cards (compact row) ──────────────
+
+    function renderNLCard(item, view, canToggle) {
+      const isDone = item.completed;
+      const timeStr = item.start_time || '';
+      const isPast = view === 'past';
+      const chipClass = isPast ? 'chip-redan' : view === 'next' ? 'chip-next' : 'chip-later';
+      const chipLabel = isPast ? 'Redan' : view === 'next' ? 'Nästa' : 'Sedan';
+      const cardClass = view === 'next' ? 'next-card' : view === 'past' ? 'past-card' : 'later-card';
+      const clickAttr = canToggle && !isDone ? `onclick="toggleItem('${item.id}', ${isDone})"` : '';
+
+      return `
+        <div class="nl-card ${cardClass} ${isDone ? 'done' : ''}" id="card-${item.id}"
+             data-feedback-for="${item.feedback_for || 'both'}"
+             data-item-icon="${item.icon || '⭐'}"
+             data-item-name="${escHtml(item.name)}"
+             data-item-id="${item.id}"
+             ${clickAttr}>
+          ${isPast ? '' : `<div class="nl-chip ${chipClass}">${chipLabel}</div>`}
+          ${isPast ? `<div class="nl-chip chip-redan">Redan</div>` : ''}
+          <div class="nl-emoji">${item.icon || '⭐'}</div>
+          <div class="nl-info">
+            <div class="nl-title ${isDone ? 'line-through' : ''}">${escHtml(item.name)}</div>
+            ${timeStr ? `<div class="nl-time"><span>🕐</span> ${timeStr}</div>` : ''}
+          </div>
+          ${isDone
+            ? `<div style="width:32px;height:32px;background:#22C55E;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-shrink:0;"><svg class="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg></div>`
+            : ''
+          }
+        </div>`;
+    }
+
+    function renderActivityCard(item, isToday) {
+      const isDone = item.completed;
+      const canToggle = isToday;
+      const timeStr = item.start_time ? (item.end_time ? `${item.start_time}–${item.end_time}` : item.start_time) : '';
+      const rating = itemRatings[item.id];
+      const feedbackFor = item.feedback_for || 'both';
+
+      // Rating display (child score shown as n/10, parent score as stars)
+      let ratingHtml = '';
+      if (rating && rating.child_score) {
+        ratingHtml = `<span class="text-xs ml-1 font-semibold" title="Ditt betyg" style="color:#F5A623">${rating.child_score}/10</span>`;
+        if (rating.parent_score) {
+          ratingHtml += `<span class="text-xs text-text-soft ml-1" title="Förälderns betyg">👨‍👩‍👧 ${'⭐'.repeat(rating.parent_score)}</span>`;
+        }
+      } else if (rating && rating.parent_score) {
+        ratingHtml = `<span class="text-xs ml-1 text-text-soft" title="Förälderns betyg">👨‍👩‍👧 ${'⭐'.repeat(rating.parent_score)}</span>`;
+      }
+
+      return `
+        <div class="activity-card ${isDone ? 'done' : ''} bg-white rounded-xl p-4 shadow-sm border-2 ${isDone ? 'border-green-200' : 'border-transparent'} ${canToggle ? 'cursor-pointer' : ''} group"
+             id="card-${item.id}"
+             data-feedback-for="${feedbackFor}"
+             data-item-icon="${item.icon || '⭐'}"
+             data-item-name="${escHtml(item.name)}"
+             data-item-id="${item.id}"
+             ${canToggle ? `onclick="toggleItem('${item.id}', ${isDone})"` : ''}>
+          <div class="flex items-center gap-3">
+            ${allowChildReorder ? `<div class="drag-handle shrink-0 flex items-center justify-center w-8 cursor-grab active:cursor-grabbing text-text-soft hover:text-navy opacity-0 group-hover:opacity-100 transition-opacity select-none" title="Dra för att ändra ordning">
+              <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+            </div>` : ''}
+            <div class="card-check w-12 h-12 rounded-full border-2 ${isDone ? 'bg-green-500 border-green-500' : 'border-lavender'} flex items-center justify-center flex-shrink-0">
+              ${isDone ? '<svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>' : ''}
+            </div>
+            <div class="text-3xl flex-shrink-0">${item.icon || '⭐'}</div>
+            <div class="flex-1 min-w-0">
+              <h4 class="font-heading font-bold text-base ${isDone ? 'line-through text-text-soft' : 'text-navy'} truncate">${escHtml(item.name)}</h4>
+              <div class="flex items-center flex-wrap gap-1 mt-0.5">
+                ${timeStr ? `<span class="text-xs text-text-soft">${timeStr}</span>` : ''}
+                <span class="text-xs text-text-soft">${'⭐'.repeat(item.star_value || 1)}</span>
+                ${ratingHtml}
+              </div>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    // ── SortableJS: child drag-and-drop activity reordering ─────────
+    let _childSortables = [];
+
+    function initChildSortable() {
+      if (!allowChildReorder) {
+        // Destroy any existing instances when feature is disabled
+        _childSortables.forEach(s => s.destroy());
+        _childSortables = [];
+        return;
+      }
+
+      // Destroy old instances before re-creating
+      _childSortables.forEach(s => s.destroy());
+      _childSortables = [];
+
+      document.querySelectorAll('.sortable-section').forEach(el => {
+        const s = new Sortable(el, {
+          animation: 200,
+          handle: '.drag-handle',
+          draggable: '.activity-card',
+          forceFallback: true, // use SortableJS touch/mouse polyfill instead of native DnD (mobile required)
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          onEnd: async function(evt) {
+            if (evt.from !== evt.to) return; // Only reorder within same section
+            const cards = Array.from(evt.from.querySelectorAll('.activity-card'));
+            const ordered_ids = cards.map(c => c.dataset.itemId).filter(Boolean);
+            if (ordered_ids.length === 0) return;
+            try {
+              await Auth.api('/api/me/daily-log/reorder', {
+                method: 'PUT',
+                body: JSON.stringify({ ordered_item_ids: ordered_ids }),
+              });
+            } catch (err) {
+              showToast('Kunde inte spara ordningen', true);
+            }
+          },
+        });
+        _childSortables.push(s);
+      });
+    }
+
+    // ── Toggle item & show rating ──────────────────────────
+
+    async function toggleItem(itemId, isCurrentlyDone) {
+      const action = isCurrentlyDone ? 'uncomplete' : 'complete';
+      // Read item data BEFORE re-rendering (card will be replaced after loadDay)
+      const card = document.getElementById('card-' + itemId);
+      const feedbackFor = card ? (card.dataset.feedbackFor || 'both') : 'both';
+      const icon = card ? (card.dataset.itemIcon || '⭐') : '⭐';
+      const name = card ? (card.dataset.itemName || 'Aktivitet') : 'Aktivitet';
+      try {
+        await Auth.api(`/api/me/daily-log-items/${itemId}/${action}`, { method: 'PUT' });
+        await loadDay(currentDate, false);
+        // After completing, show rating modal only if config allows child rating
+        if (!isCurrentlyDone && feedbackFor !== 'parent' && feedbackFor !== 'none') {
+          openRatingModal(itemId, icon, name);
+        }
+      } catch (err) {
+        console.error('Toggle error:', err);
+        showToast('Kunde inte uppdatera. Försök igen.', true);
+      }
+    }
+
+    // ── Rating modal ───────────────────────────────────────
+
+    function openRatingModal(itemId, icon, name) {
+      ratingItemId = itemId;
+      ratingItemIcon = icon;
+      ratingItemName = name;
+      ratingScore = 5; // default middle
+      document.getElementById('ratingActivityIcon').textContent = icon;
+      document.getElementById('ratingActivityName').textContent = name;
+      document.getElementById('ratingComment').value = '';
+      const slider = document.getElementById('moodSlider');
+      if (slider) slider.value = 5;
+      updateMoodSlider(5);
+      document.getElementById('ratingModal').classList.remove('hidden');
+    }
+
+    // ── Mood slider + morphing face ────────────────────────
+
+    function updateMoodSlider(score) {
+      ratingScore = score;
+      // Update score display
+      const scoreDisplay = document.getElementById('scoreDisplay');
+      const scoreLabel = document.getElementById('scoreLabel');
+      if (scoreDisplay) scoreDisplay.textContent = score;
+      if (scoreLabel) scoreLabel.textContent = SCORE_LABELS[score] || '';
+
+      // Colour of the score number based on score
+      const scoreColors = ['','#EF4444','#F97316','#F97316','#EAB308','#EAB308','#22C55E','#22C55E','#10B981','#10B981','#F5A623'];
+      if (scoreDisplay) scoreDisplay.style.color = scoreColors[score] || '#F5A623';
+
+      // Morph the face
+      morphFace(score);
+    }
+
+    function morphFace(score) {
+      // score 1–10
+      // t = 0 (very sad) → 1 (very happy)
+      const t = (score - 1) / 9;
+
+      // Mouth: M 32 65 Q 50 CY 68 65
+      // sad CY = 52 (frown), happy CY = 80 (big smile)
+      const mouthCY = Math.round(52 + t * 28);
+      const mouth = document.getElementById('mouthPath');
+      if (mouth) {
+        // Wider mouth at extremes
+        const mouthX1 = Math.round(32 - t * 4); // 32 → 28 (wider smile)
+        const mouthX2 = Math.round(68 + t * 4); // 68 → 72
+        mouth.setAttribute('d', `M ${mouthX1} 65 Q 50 ${mouthCY} ${mouthX2} 65`);
+      }
+
+      // Eyebrows: raised when happy (low y), furrowed when sad (high y, angled in)
+      const browLeft = document.getElementById('browLeft');
+      const browRight = document.getElementById('browRight');
+      if (browLeft && browRight) {
+        if (score <= 3) {
+          // Furrowed / angled down toward nose = angry/sad
+          const anger = (3 - score) / 2; // 0–1
+          browLeft.setAttribute('d', `M 27 ${28 + anger * 4} Q 35 ${30 + anger * 2} 43 ${28 - anger * 2}`);
+          browRight.setAttribute('d', `M 57 ${28 - anger * 2} Q 65 ${30 + anger * 2} 73 ${28 + anger * 4}`);
+        } else {
+          // Normal to raised
+          const raise = Math.max(0, t - 0.6) * 2.5; // only raise near top
+          browLeft.setAttribute('d', `M 27 ${30 - raise * 4} Q 35 ${26 - raise * 4} 43 ${30 - raise * 4}`);
+          browRight.setAttribute('d', `M 57 ${30 - raise * 4} Q 65 ${26 - raise * 4} 73 ${30 - raise * 4}`);
+        }
+      }
+
+      // Rosy cheeks: visible at score 8+
+      const cheekOpacity = Math.max(0, (score - 7) / 3).toFixed(2);
+      const cheekLeft = document.getElementById('cheekLeft');
+      const cheekRight = document.getElementById('cheekRight');
+      if (cheekLeft) cheekLeft.setAttribute('opacity', cheekOpacity);
+      if (cheekRight) cheekRight.setAttribute('opacity', cheekOpacity);
+
+      // Face background colour: more vivid/golden at high scores
+      const faceBg = document.getElementById('faceBg');
+      if (faceBg) {
+        if (score >= 9) faceBg.setAttribute('fill', '#FFF3D6');
+        else if (score <= 2) faceBg.setAttribute('fill', '#EEF2FF');
+        else faceBg.setAttribute('fill', '#FFF8E8');
+      }
+
+      // Eyes: slightly wider at high scores
+      const eyeSize = 5 + t * 1.5;
+      const eyeLeft = document.getElementById('eyeLeft');
+      const eyeRight = document.getElementById('eyeRight');
+      if (eyeLeft) { eyeLeft.setAttribute('rx', eyeSize.toFixed(1)); eyeLeft.setAttribute('ry', eyeSize.toFixed(1)); }
+      if (eyeRight) { eyeRight.setAttribute('rx', eyeSize.toFixed(1)); eyeRight.setAttribute('ry', eyeSize.toFixed(1)); }
+    }
+
+    function dismissRating() {
+      document.getElementById('ratingModal').classList.add('hidden');
+      ratingItemId = null;
+    }
+
+    async function submitRating() {
+      if (!ratingItemId) return;
+      const score = ratingScore || 5;
+      const comment = document.getElementById('ratingComment').value.trim();
+      const btn = document.getElementById('ratingSubmitBtn');
+      if (btn) { btn.disabled = true; btn.textContent = 'Sparar…'; }
+      try {
+        await Auth.api(`/api/me/daily-log-items/${ratingItemId}/rate`, {
+          method: 'POST',
+          body: JSON.stringify({ score, comment: comment || null }),
+        });
+        itemRatings[ratingItemId] = { child_score: score, child_comment: comment };
+        dismissRating();
+        await loadDay(currentDate, false);
+        showToast('⭐ Betyg sparat!');
+      } catch (err) {
+        console.error('Rating error:', err);
+        dismissRating();
+      } finally {
+        if (btn) { btn.disabled = false; btn.textContent = 'Spara ⭐'; }
+      }
+    }
+
+    // ── Load day ───────────────────────────────────────────
+
+    async function loadDay(dateStr, showLoader = true) {
+      currentDate = dateStr;
+      renderDayTabs();
+      updateDateLine();
+
+      if (showLoader) {
+        document.getElementById('scheduleView').innerHTML = `
+          <div class="text-center py-16">
+            <p class="text-4xl mb-3 animate-pulse">⏳</p>
+            <p class="text-text-soft">Laddar...</p>
+          </div>`;
+      }
+
+      try {
+        const [data, rwdData] = await Promise.all([
+          Auth.api(`/api/me/daily-log?date=${dateStr}`),
+          Auth.api('/api/me/rewards').catch(() => null),
+        ]);
+        // Load ratings for all items
+        const items = data.items || [];
+        await loadRatingsForItems(items.map(i => i.id));
+        // Store allow_child_reorder flag from API
+        allowChildReorder = !!data.allow_child_reorder;
+        renderActivities(data, rwdData?.starBalance);
+      } catch (err) {
+        console.error('Load day error:', err);
+        document.getElementById('scheduleView').innerHTML = `
+          <div class="text-center py-12 bg-white rounded-2xl mt-2">
+            <p class="text-4xl mb-3">😕</p>
+            <p class="text-text-soft">Kunde inte ladda schemat. Försök igen.</p>
+            <button onclick="loadDay('${dateStr}')" class="mt-4 px-6 py-2 bg-gold text-white rounded-xl font-semibold">Försök igen</button>
+          </div>`;
+      }
+    }
+
+    async function loadRatingsForItems(itemIds) {
+      // Load ratings for all items in parallel (batch with Promise.all)
+      if (!itemIds.length) return;
+      const results = await Promise.allSettled(
+        itemIds.map(id =>
+          Auth.api(`/api/me/daily-log-items/${id}/rating`)
+            .then(r => ({ id, r }))
+            .catch(() => null)
+        )
+      );
+      for (const res of results) {
+        if (res.status === 'fulfilled' && res.value) {
+          const { id, r } = res.value;
+          if (r) itemRatings[id] = r;
+        }
+      }
+    }
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    // ── Dark mode ──────────────────────────────────────────
+
+    function toggleChildDarkMode() {
+      const isDark = Theme.toggleDark();
+      const btn = document.getElementById('childDarkBtn');
+      if (btn) btn.textContent = isDark ? '☀️' : '🌙';
+    }
+
+    // ── Confetti launcher ──────────────────────────────────
+
+    function launchConfetti() {
+      const COLORS = ['#F5A623', '#22C55E', '#3B82F6', '#A855F7', '#EF4444', '#F59E0B', '#10B981'];
+      const SHAPES = ['⭐', '🌟', '✨', '★'];
+      const count = 60;
+
+      for (let i = 0; i < count; i++) {
+        setTimeout(() => {
+          const el = document.createElement('span');
+          const useEmoji = Math.random() < 0.4;
+          if (useEmoji) {
+            el.textContent = SHAPES[Math.floor(Math.random() * SHAPES.length)];
+            el.style.cssText = `
+              position: fixed;
+              left: ${Math.random() * 100}vw;
+              top: -20px;
+              font-size: ${10 + Math.random() * 18}px;
+              pointer-events: none;
+              z-index: 9999;
+              animation: confettiFall ${1.5 + Math.random() * 2}s linear forwards;
+            `;
+          } else {
+            el.className = 'confetti-piece';
+            el.style.left = `${Math.random() * 100}vw`;
+            el.style.top = '-10px';
+            el.style.backgroundColor = COLORS[Math.floor(Math.random() * COLORS.length)];
+            el.style.width = `${6 + Math.random() * 8}px`;
+            el.style.height = `${6 + Math.random() * 8}px`;
+            el.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+            el.style.animationDuration = `${1.5 + Math.random() * 2}s`;
+          }
+          document.body.appendChild(el);
+          el.addEventListener('animationend', () => el.remove());
+        }, i * 30);
+      }
+    }
+
+    let _toastTimer = null;
+    function showToast(msg, isError = false) {
+      let el = document.getElementById('toast');
+      if (!el) {
+        el = document.createElement('div');
+        el.id = 'toast';
+        document.body.appendChild(el);
+      }
+      el.textContent = msg;
+      el.className = `fixed top-4 left-1/2 -translate-x-1/2 ${isError ? 'bg-red-500' : 'bg-navy'} text-white px-5 py-2.5 rounded-xl shadow-lg z-50 text-sm font-semibold`;
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => { el.style.opacity = ''; el.style.transition = ''; el.textContent = ''; }, 400); }, 2500);
+    }
+
+    // ── Init ───────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      if (!Auth.isLoggedIn()) {
+        window.location.href = '/child-login';
+        return;
+      }
+
+      try {
+        me = await Auth.api('/api/auth/me');
+        document.getElementById('childName').textContent = me.name || 'Mitt schema';
+        document.getElementById('childEmoji').textContent = me.emoji || '⭐';
+        const darkBtn = document.getElementById('childDarkBtn');
+        if (darkBtn) darkBtn.textContent = Theme.isDark() ? '☀️' : '🌙';
+
+        todayStr = getLocalDate();
+        currentDate = todayStr;
+        renderDayTabs();
+        updateDateLine();
+        await loadDay(todayStr);
+      } catch (err) {
+        console.error('Init error:', err);
+        Auth.clearAuth();
+        window.location.href = '/child-login';
+      }
+    });
+  </script>
+</body>
+</html>

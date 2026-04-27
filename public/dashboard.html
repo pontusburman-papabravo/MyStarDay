@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Föräldra-panel - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623', 'gold-light': '#FFF3D6', navy: '#1B2340', 'navy-soft': '#2A3458',
+            sky: '#E8F0FE', lavender: '#EDE7F6', mint: '#E0F5EC', coral: '#FDEAE7', 'text-soft': '#5A6178',
+          },
+          fontFamily: { heading: ['Outfit', 'sans-serif'], body: ['Plus Jakarta Sans', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+  <script src="/js/theme.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/i18n.js"></script>
+  <style>
+    .progress-fill { transition: width 0.5s ease; }
+    .hist-bar { transition: height 0.4s ease; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease forwards; }
+    .draggable-item { touch-action: none; }
+    .draggable-item.sortable-ghost { opacity: 0.4; background: #FFF3D6; border: 2px dashed #F5A623; }
+    .draggable-item.sortable-chosen { box-shadow: 0 8px 24px rgba(245,166,35,0.3); transform: scale(1.02); }
+    .drag-handle { cursor: grab; color: #9AA0B8; user-select: none; touch-action: none; }
+    .drag-handle:active { cursor: grabbing; }
+    /* WCAG 2.5.8: min 44×44px touch target for checkboxes */
+    .checkbox-touch { display: flex; align-items: center; gap: 12px; cursor: pointer; }
+    .checkbox-touch input[type="checkbox"] { width: 44px; height: 44px; margin: 0; cursor: pointer; accent-color: #F5A623; flex-shrink: 0; }
+    .checkbox-touch span { cursor: pointer; flex: 1; }
+  </style>
+</head>
+<body class="bg-white font-body text-navy dark:bg-navy dark:text-white">
+  <div class="min-h-screen flex flex-col md:flex-row">
+    <!-- Mobile Top Bar -->
+    <div class="md:hidden bg-navy text-white p-4 flex items-center justify-between sticky top-0 z-20">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">⭐</span>
+        <h1 class="text-lg font-heading font-bold">Min Stjärndag</h1>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="toggleDarkMode()" class="p-2 hover:bg-navy-soft rounded-lg transition-colors text-lg" title="Mörkt läge">🌙</button>
+        <button id="menuToggle" class="p-2 hover:bg-navy-soft rounded-lg transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="hidden md:block w-full md:w-64 bg-navy text-white p-4 md:p-6 md:min-h-screen">
+      <div class="hidden md:flex items-center gap-3 mb-8">
+        <span class="text-2xl">⭐</span>
+        <h1 class="text-xl font-heading font-bold">Min Stjärndag</h1>
+      </div>
+      <ul class="space-y-2">
+        <li><a href="/dashboard" class="block px-4 py-3 rounded-lg bg-gold text-navy font-semibold">Min panel</a></li>
+        <li><a href="/family" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Familj</a></li>
+        <li><a href="/daily-log" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Daglig logg</a></li>
+        <li><a href="/activities" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Aktiviteter</a></li>
+        <li><a href="/schedule" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Veckoschema</a></li>
+        <li><a href="/settings" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Inställningar</a></li>
+      </ul>
+      <div class="mt-8 pt-4 border-t border-navy-soft space-y-2">
+        <button id="darkModeToggle" onclick="toggleDarkMode()" class="w-full px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors text-left flex items-center gap-2">
+          <span id="darkModeIcon">🌙</span> <span id="darkModeLabel">Mörkt läge</span>
+        </button>
+        <button onclick="openFeedbackModal()" class="w-full px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors text-left flex items-center gap-2">
+          <span>💬</span> Ge feedback
+        </button>
+        <button id="logoutBtn" class="w-full px-4 py-2 bg-coral hover:bg-red-200 text-navy rounded-lg font-semibold transition-colors">Logga ut</button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col">
+      <div class="hidden md:flex bg-sky border-b border-lavender p-4 md:p-6 justify-between items-center">
+        <div>
+          <h2 class="text-xl font-heading font-bold text-navy">Min panel</h2>
+          <p id="todayLabel" class="text-sm text-text-soft"></p>
+        </div>
+        <span id="userEmail" class="text-sm text-text-soft"></span>
+      </div>
+
+      <div class="flex-1 p-4 md:p-8 overflow-auto space-y-6">
+
+        <!-- Welcome + date (mobile) -->
+        <div class="md:hidden">
+          <h2 id="welcomeText" class="text-xl font-heading font-bold text-navy">Välkommen!</h2>
+          <p id="todayLabelMobile" class="text-sm text-text-soft mt-1"></p>
+        </div>
+
+        <!-- Loading state -->
+        <div id="loadingState" class="text-center py-16">
+          <p class="text-4xl mb-3 animate-pulse">⏳</p>
+          <p class="text-text-soft">Laddar din panel…</p>
+        </div>
+
+        <!-- Stats container (hidden until loaded) -->
+        <div id="statsContainer" class="hidden space-y-6">
+
+          <!-- Pending redemptions banner -->
+          <div id="pendingBanner" class="hidden bg-gold-light border border-gold/30 rounded-2xl p-4 md:p-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-heading font-bold text-navy flex items-center gap-2">
+                🎁 Belöningar väntar
+                <span id="pendingCount" class="bg-gold text-white text-xs font-bold px-2 py-0.5 rounded-full"></span>
+              </h3>
+              <a href="#" onclick="document.getElementById('rewardsSection').scrollIntoView({behavior:'smooth'});return false;" class="text-xs text-gold font-semibold hover:underline">Hantera →</a>
+            </div>
+            <div id="pendingRedemptionsList" class="space-y-2"></div>
+          </div>
+
+          <!-- Children cards -->
+          <div>
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg md:text-xl font-heading font-bold text-navy">Dina barn idag</h3>
+              <button onclick="document.getElementById('addChildModal').classList.remove('hidden')"
+                class="px-3 py-1.5 text-sm bg-gold hover:bg-yellow-500 text-white rounded-lg font-semibold transition-colors">
+                + Lägg till barn
+              </button>
+            </div>
+
+            <div id="childrenStats" class="grid grid-cols-1 md:grid-cols-2 gap-4"></div>
+
+            <!-- Empty state: no children -->
+            <div id="noChildrenState" class="hidden text-center py-16 bg-sky rounded-2xl">
+              <p class="text-6xl mb-4">👨‍👩‍👧</p>
+              <p class="text-xl font-heading font-bold text-navy mb-2">Inga barn tillagda än</p>
+              <p class="text-text-soft text-sm mb-6">Lägg till ditt första barn för att komma igång med Min Stjärndag!</p>
+              <button onclick="document.getElementById('addChildModal').classList.remove('hidden')"
+                class="px-6 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors">
+                + Lägg till barn
+              </button>
+            </div>
+          </div>
+
+          <!-- Manage children section -->
+          <div id="manageSection" class="hidden bg-sky rounded-2xl p-4 md:p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-base font-heading font-bold text-navy">Hantera barn</h3>
+            </div>
+            <div id="manageChildrenList" class="space-y-3"></div>
+          </div>
+
+          <!-- Rewards management section -->
+          <div id="rewardsSection" class="bg-white border-2 border-lavender rounded-2xl p-4 md:p-6">
+            <div class="flex justify-between items-center mb-4">
+              <h3 class="text-lg font-heading font-bold text-navy flex items-center gap-2">🎁 Belöningar</h3>
+              <button onclick="openAddRewardModal()" class="px-3 py-1.5 text-sm bg-gold hover:bg-yellow-500 text-white rounded-lg font-semibold transition-colors">+ Ny belöning</button>
+            </div>
+            <div id="rewardsList" class="space-y-2">
+              <p class="text-text-soft text-sm text-center py-4">Laddar...</p>
+            </div>
+            <!-- Pending redemptions inline -->
+            <div id="pendingRedemptionsSection" class="hidden mt-4 pt-4 border-t border-lavender">
+              <h4 class="text-sm font-heading font-bold text-navy mb-2">Väntande inlösen</h4>
+              <div id="pendingRedemptionItems" class="space-y-2"></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </main>
+  </div>
+
+  <!-- Add Child Modal -->
+  <div id="addChildModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-md shadow-xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy">Lägg till barn</h3>
+        <button onclick="document.getElementById('addChildModal').classList.add('hidden')" class="text-text-soft hover:text-navy text-2xl">&times;</button>
+      </div>
+      <form id="addChildForm" class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Förnamn *</label>
+          <input type="text" id="childName" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors" placeholder="T.ex. Anna">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Emoji *</label>
+          <div class="flex gap-2 flex-wrap" id="emojiPicker">
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👧">👧</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👦">👦</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🧒">🧒</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👶">👶</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🌟">🌟</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🦄">🦄</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐱">🐱</button>
+            <button type="button" class="emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐶">🐶</button>
+          </div>
+          <input type="hidden" id="childEmoji" required>
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Födelsedatum *</label>
+          <input type="date" id="childBirthday" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">PIN-kod <span class="text-text-soft font-normal">(4 siffror, valfritt)</span></label>
+          <input type="text" id="childPin" inputmode="numeric" pattern="[0-9]*" maxlength="4" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors" placeholder="T.ex. 4721">
+          <p class="text-xs text-text-soft mt-1">Lämna tomt för att få en slumpmässig kod. Undvik 1234, 0000 etc.</p>
+        </div>
+        <button type="submit" id="addChildSubmit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">Lägg till</button>
+        <div id="addChildMsg" class="text-sm min-h-[1.4em]"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit PIN Modal -->
+  <div id="editPinModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-sm shadow-xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy">Ändra PIN-kod</h3>
+        <button onclick="document.getElementById('editPinModal').classList.add('hidden')" class="text-text-soft hover:text-navy text-2xl">&times;</button>
+      </div>
+      <form id="editPinForm" class="space-y-4">
+        <input type="hidden" id="editPinChildId">
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Ny PIN-kod (4 siffror)</label>
+          <input type="text" id="newPin" required pattern="\d{4}" maxlength="4" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors text-center text-2xl tracking-widest" placeholder="0000">
+        </div>
+        <button type="submit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">Spara PIN</button>
+        <div id="editPinMsg" class="text-sm min-h-[1.4em]"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Child Modal -->
+  <div id="editChildModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-md shadow-xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy">Redigera barn</h3>
+        <button onclick="document.getElementById('editChildModal').classList.add('hidden')" class="text-text-soft hover:text-navy text-2xl">&times;</button>
+      </div>
+      <form id="editChildForm" class="space-y-4">
+        <input type="hidden" id="editChildId">
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Förnamn *</label>
+          <input type="text" id="editChildName" required class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Emoji *</label>
+          <div class="flex gap-2 flex-wrap" id="editEmojiPicker">
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👧">👧</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👦">👦</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🧒">🧒</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👶">👶</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🌟">🌟</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🦄">🦄</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐱">🐱</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐶">🐶</button>
+          </div>
+          <input type="hidden" id="editChildEmoji">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Födelsedatum</label>
+          <input type="date" id="editChildBirthday" class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+        </div>
+        <button type="submit" id="editChildSubmit" class="w-full px-4 py-3 bg-gold hover:bg-yellow-500 text-navy rounded-xl font-heading font-bold transition-colors">Spara ändringar</button>
+        <div id="editChildMsg" class="text-sm min-h-[1.4em]"></div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Child Created Success Modal -->
+  <div id="childCreatedModal" class="hidden fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+    <div class="bg-white rounded-2xl p-6 md:p-8 w-full max-w-sm shadow-xl text-center">
+      <div class="text-5xl mb-4" id="createdEmoji"></div>
+      <h3 class="text-xl font-heading font-bold text-navy mb-2" id="createdName"></h3>
+      <div class="bg-gold-light rounded-xl p-4 mb-4">
+        <p class="text-sm text-text-soft mb-1">PIN-kod</p>
+        <p class="text-3xl font-heading font-bold text-gold tracking-widest" id="createdPin"></p>
+      </div>
+      <p class="text-sm text-text-soft mb-4">Spara PIN-koden! Den visas bara en gång.</p>
+      <button onclick="document.getElementById('childCreatedModal').classList.add('hidden'); loadDashboard();" class="w-full px-4 py-3 bg-navy text-white rounded-xl font-heading font-bold">Jag har sparat</button>
+    </div>
+  </div>
+
+  <script>
+    let selectedEmoji = '';
+    let editSelectedEmoji = '';
+    let widgetOrder = []; // parent's preferred order of child stat cards
+    let _dashboardSortable = null; // SortableJS instance for stats container
+    let _toastTimer = null;
+    function showToast(msg, isError = false) {
+      let el = document.getElementById('toast');
+      if (!el) { el = document.createElement('div'); el.id = 'toast'; document.body.appendChild(el); }
+      el.textContent = msg;
+      el.className = `fixed top-4 left-1/2 -translate-x-1/2 ${isError ? 'bg-red-500' : 'bg-navy'} text-white px-5 py-2.5 rounded-xl shadow-lg z-50 text-sm font-semibold`;
+      if (_toastTimer) clearTimeout(_toastTimer);
+      _toastTimer = setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity 0.3s'; setTimeout(() => { el.style.opacity = ''; el.style.transition = ''; el.textContent = ''; }, 400); }, 2500);
+    }
+
+    // ── Menu toggle ────────────────────────────────────────
+    document.getElementById('menuToggle').addEventListener('click', () => {
+      document.getElementById('sidebar').classList.toggle('hidden');
+    });
+
+    // ── Date helpers ───────────────────────────────────────
+    function getTodayStr() {
+      return new Date().toLocaleDateString('sv-SE');
+    }
+
+    function formatDayLabel() {
+      const d = new Date();
+      return d.toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long' });
+    }
+
+    // ── Load dashboard ─────────────────────────────────────
+    async function loadDashboard() {
+      try {
+        // Load widget order (parent's preferred child card order)
+        const woRes = await Auth.api('/api/account/widget-order');
+        widgetOrder = (woRes.widget_order || []).filter(Boolean);
+
+        const stats = await Auth.api('/api/family/dashboard-stats');
+        renderDashboard(stats);
+      } catch (err) {
+        console.error('Dashboard stats error:', err);
+        document.getElementById('loadingState').innerHTML = `
+          <p class="text-4xl mb-3">😕</p>
+          <p class="text-text-soft">Kunde inte ladda panelen. Försök igen.</p>
+          <button onclick="loadDashboard()" class="mt-4 px-6 py-2 bg-sky rounded-xl font-semibold text-navy hover:bg-lavender transition-colors">Försök igen</button>
+        `;
+      }
+    }
+
+    function renderDashboard(stats) {
+      document.getElementById('loadingState').classList.add('hidden');
+      document.getElementById('statsContainer').classList.remove('hidden');
+
+      const { children, today, total_pending_redemptions } = stats;
+
+      // Pending redemptions banner
+      if (total_pending_redemptions > 0) {
+        // Gather all pending from children
+        const allPending = children.filter(c => c.pending_redemptions > 0);
+        document.getElementById('pendingCount').textContent = total_pending_redemptions;
+        document.getElementById('pendingRedemptionsList').innerHTML = allPending.map(c => `
+          <div class="flex items-center gap-2 text-sm">
+            <span>${c.emoji || '👤'}</span>
+            <span class="font-semibold text-navy">${escHtml(c.name)}</span>
+            <span class="text-text-soft">har ${c.pending_redemptions} väntande belöning${c.pending_redemptions > 1 ? 'ar' : ''}</span>
+          </div>
+        `).join('');
+        document.getElementById('pendingBanner').classList.remove('hidden');
+      } else {
+        document.getElementById('pendingBanner').classList.add('hidden');
+      }
+
+      // Children stats cards
+      const statsContainer = document.getElementById('childrenStats');
+      const noChildren = document.getElementById('noChildrenState');
+      const manageSection = document.getElementById('manageSection');
+
+      if (!children || children.length === 0) {
+        statsContainer.innerHTML = '';
+        noChildren.classList.remove('hidden');
+        manageSection.classList.add('hidden');
+        if (_dashboardSortable) { _dashboardSortable.destroy(); _dashboardSortable = null; }
+        return;
+      }
+
+      noChildren.classList.add('hidden');
+      manageSection.classList.remove('hidden');
+
+      // Sort children by widgetOrder (parent's preferred order)
+      const sortedChildren = [...children].sort((a, b) => {
+        const aIdx = widgetOrder.indexOf(a.id);
+        const bIdx = widgetOrder.indexOf(b.id);
+        if (aIdx !== -1 && bIdx !== -1) return aIdx - bIdx;
+        if (aIdx !== -1) return -1;
+        if (bIdx !== -1) return 1;
+        return 0;
+      });
+
+      // Render stats cards
+      statsContainer.innerHTML = sortedChildren.map(c => renderChildCard(c, today)).join('');
+
+      // Initialize SortableJS for widget reordering
+      initWidgetSortable();
+
+      // Render manage list (use sortedChildren for consistent order)
+      document.getElementById('manageChildrenList').innerHTML = sortedChildren.map(c => {
+        const safeName = escHtml(c.name);
+        const safeId = escHtml(c.id);
+        return `
+          <div class="bg-white border border-lavender rounded-xl p-3 flex items-center gap-3">
+            <span class="text-2xl">${c.emoji || '⭐'}</span>
+            <span class="font-semibold text-navy flex-1">${safeName}</span>
+            <div class="flex gap-2">
+              <a href="/schedule" class="min-w-[44px] min-h-[44px] flex items-center justify-center px-3 py-2 text-xs bg-gold hover:bg-yellow-500 text-white rounded-lg transition-colors">📅</a>
+              <button onclick="openEditChildModal('${safeId}', '${safeName}', '${c.emoji}', '')" class="min-w-[44px] min-h-[44px] flex items-center justify-center px-3 py-2 text-xs bg-mint hover:bg-teal-100 text-navy rounded-lg transition-colors" title="Redigera">✏️</button>
+              <button onclick="openPinModal('${safeId}')" class="min-w-[44px] min-h-[44px] flex items-center justify-center px-3 py-2 text-xs bg-sky hover:bg-lavender text-navy rounded-lg transition-colors" title="PIN">🔑</button>
+              <button onclick="deleteChild('${safeId}', '${safeName}')" class="min-w-[44px] min-h-[44px] flex items-center justify-center px-3 py-2 text-xs bg-coral hover:bg-red-200 text-navy rounded-lg transition-colors" title="Ta bort">🗑️</button>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── SortableJS: widget reorder on dashboard ────────────────
+    function initWidgetSortable() {
+      const container = document.getElementById('childrenStats');
+      if (!container) return;
+
+      // Destroy existing instance before recreating
+      if (_dashboardSortable) { _dashboardSortable.destroy(); _dashboardSortable = null; }
+
+      _dashboardSortable = new Sortable(container, {
+        animation: 200,
+        handle: '.drag-handle',
+        draggable: '.stat-card',
+        forceFallback: true, // use SortableJS touch/mouse polyfill instead of native DnD (mobile required)
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: async function(evt) {
+          const cards = Array.from(container.querySelectorAll('.stat-card'));
+          const newOrder = cards.map(c => c.dataset.childId).filter(Boolean);
+          if (newOrder.length === 0) return;
+
+          widgetOrder = newOrder;
+          try {
+            await Auth.api('/api/account/widget-order', {
+              method: 'PUT',
+              body: JSON.stringify({ widget_order: newOrder }),
+            });
+          } catch (err) {
+            showToast('Kunde inte spara ordningen', true);
+          }
+        },
+      });
+    }
+
+    function renderChildCard(child, today) {
+      const { name, emoji, today_total, today_completed, today_pct, star_balance, history } = child;
+      const hasActivities = today_total > 0;
+      const pct = today_pct !== null ? today_pct : null;
+      const allDone = hasActivities && today_completed === today_total;
+
+      // 7-day mini chart
+      const chartHtml = renderMiniChart(history);
+
+      // Progress bar color
+      const barColor = allDone ? 'bg-green-500' : 'bg-gold';
+
+      return `
+        <div class="stat-card bg-white border-2 border-lavender rounded-2xl p-5 hover:border-gold transition-colors fade-in group relative"
+             data-child-id="${child.id}">
+          <!-- Drag handle (top-right) -->
+          <div class="drag-handle absolute top-3 right-3 w-8 h-8 flex items-center justify-center cursor-grab active:cursor-grabbing text-text-soft hover:text-navy opacity-0 group-hover:opacity-100 transition-opacity select-none rounded-lg" title="Dra för att ändra ordning">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M3 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm0 4a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1z" clip-rule="evenodd"/></svg>
+          </div>
+          <!-- Header -->
+          <div class="flex items-center gap-3 mb-4">
+            <div class="text-4xl">${emoji || '⭐'}</div>
+            <div class="flex-1">
+              <h4 class="text-lg font-heading font-bold text-navy">${escHtml(name)}</h4>
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-semibold text-gold">⭐ ${star_balance}</span>
+                <span class="text-text-soft text-xs">stjärnor</span>
+                ${child.pending_redemptions > 0 ? `<span class="bg-gold text-white text-xs font-bold px-1.5 py-0.5 rounded-full">${child.pending_redemptions} 🎁</span>` : ''}
+              </div>
+            </div>
+            ${allDone ? '<span class="text-2xl" title="Alla klara!">🌟</span>' : ''}
+          </div>
+
+          <!-- Today's progress -->
+          ${hasActivities ? `
+            <div class="mb-4">
+              <div class="flex justify-between text-sm mb-1.5">
+                <span class="font-semibold text-navy">${today_completed} av ${today_total} aktiviteter</span>
+                <span class="text-text-soft">${pct}%</span>
+              </div>
+              <div class="w-full bg-lavender rounded-full h-3 overflow-hidden">
+                <div class="progress-fill ${barColor} h-3 rounded-full" style="width:${pct}%"></div>
+              </div>
+            </div>
+          ` : `
+            <div class="mb-4 p-3 bg-sky rounded-xl text-center">
+              <p class="text-sm text-text-soft">Inga aktiviteter idag 🌟</p>
+              <a href="/schedule" class="text-xs text-gold font-semibold hover:underline">Lägg till i schemat →</a>
+            </div>
+          `}
+
+          <!-- 7-day mini chart -->
+          ${chartHtml}
+
+          <!-- Quick links -->
+          <div class="flex gap-2 mt-4">
+            <a href="/schedule" class="flex-1 text-center px-3 py-2 text-sm bg-sky hover:bg-lavender text-navy rounded-xl font-semibold transition-colors">📅 Schema</a>
+            <a href="/daily-log" class="flex-1 text-center px-3 py-2 text-sm bg-gold hover:bg-yellow-500 text-white rounded-xl font-semibold transition-colors">📋 Logg</a>
+          </div>
+        </div>`;
+    }
+
+    function renderMiniChart(history) {
+      if (!history || history.length === 0) {
+        return `
+          <div class="bg-sky rounded-xl p-3 text-center">
+            <p class="text-xs text-text-soft">📊 Ingen historik ännu — börja bocka av!</p>
+          </div>`;
+      }
+
+      const DAY_SHORT = ['Sön', 'Mån', 'Tis', 'Ons', 'Tor', 'Fre', 'Lör'];
+
+      // Generate last 7 days
+      const today = new Date();
+      const days = [];
+      for (let i = 6; i >= 0; i--) {
+        const d = new Date(today);
+        d.setDate(today.getDate() - i);
+        const dateStr = d.toLocaleDateString('sv-SE');
+        const dow = d.getDay();
+        const entry = history.find(h => h.date === dateStr);
+        days.push({ dateStr, dow, entry });
+      }
+
+      const bars = days.map(({ dateStr, dow, entry }) => {
+        const isToday = dateStr === new Date().toLocaleDateString('sv-SE');
+        if (!entry || entry.total === 0) {
+          // No data
+          return `
+            <div class="flex flex-col items-center gap-1 flex-1">
+              <div class="w-full flex items-end justify-center" style="height:40px">
+                <div class="w-full max-w-[20px] bg-lavender rounded-t-sm" style="height:4px"></div>
+              </div>
+              <span class="text-[10px] text-text-soft">${DAY_SHORT[dow]}</span>
+            </div>`;
+        }
+        const pct = entry.total > 0 ? (entry.completed / entry.total) : 0;
+        const heightPx = Math.max(4, Math.round(pct * 40));
+        const color = pct >= 1 ? 'bg-green-400' : pct >= 0.5 ? 'bg-gold' : 'bg-coral';
+        return `
+          <div class="flex flex-col items-center gap-1 flex-1">
+            <div class="w-full flex items-end justify-center" style="height:40px">
+              <div class="hist-bar w-full max-w-[20px] ${color} rounded-t-sm ${isToday ? 'ring-1 ring-navy' : ''}" style="height:${heightPx}px" title="${entry.completed}/${entry.total}"></div>
+            </div>
+            <span class="text-[10px] ${isToday ? 'font-bold text-navy' : 'text-text-soft'}">${DAY_SHORT[dow]}</span>
+          </div>`;
+      });
+
+      return `
+        <div class="bg-sky rounded-xl p-3">
+          <p class="text-xs font-semibold text-text-soft uppercase tracking-wide mb-2">📊 Senaste 7 dagarna</p>
+          <div class="flex gap-1 items-end">${bars.join('')}</div>
+        </div>`;
+    }
+
+    // ── Modals ─────────────────────────────────────────────
+
+    function escHtml(s) { const d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
+
+    function openEditChildModal(childId, name, emoji, birthday) {
+      document.getElementById('editChildId').value = childId;
+      document.getElementById('editChildName').value = name;
+      document.getElementById('editChildBirthday').value = birthday || '';
+      document.getElementById('editChildMsg').textContent = '';
+      editSelectedEmoji = emoji;
+      document.getElementById('editChildEmoji').value = emoji;
+      document.querySelectorAll('.edit-emoji-opt').forEach(b => {
+        b.classList.remove('border-gold', 'bg-gold-light');
+        if (b.dataset.emoji === emoji) b.classList.add('border-gold', 'bg-gold-light');
+      });
+      document.getElementById('editChildModal').classList.remove('hidden');
+    }
+
+    function openPinModal(childId) {
+      document.getElementById('editPinChildId').value = childId;
+      document.getElementById('newPin').value = '';
+      document.getElementById('editPinMsg').textContent = '';
+      document.getElementById('editPinModal').classList.remove('hidden');
+    }
+
+    async function deleteChild(id, name) {
+      if (!confirm(`Vill du verkligen ta bort ${name}? Detta kan inte ångras.`)) return;
+      try {
+        await Auth.api(`/api/children/${id}`, { method: 'DELETE' });
+        loadDashboard();
+      } catch (err) { alert(err.message || 'Nätverksfel'); }
+    }
+
+    // ── Forms ──────────────────────────────────────────────
+
+    document.querySelectorAll('.emoji-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.emoji-opt').forEach(b => b.classList.remove('border-gold', 'bg-gold-light'));
+        btn.classList.add('border-gold', 'bg-gold-light');
+        selectedEmoji = btn.dataset.emoji;
+        document.getElementById('childEmoji').value = selectedEmoji;
+      });
+    });
+
+    document.querySelectorAll('.edit-emoji-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.edit-emoji-opt').forEach(b => b.classList.remove('border-gold', 'bg-gold-light'));
+        btn.classList.add('border-gold', 'bg-gold-light');
+        editSelectedEmoji = btn.dataset.emoji;
+        document.getElementById('editChildEmoji').value = editSelectedEmoji;
+      });
+    });
+
+    document.getElementById('addChildForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('addChildMsg');
+      const btn = document.getElementById('addChildSubmit');
+      if (!selectedEmoji) {
+        msg.textContent = 'Välj en emoji';
+        msg.className = 'text-sm text-red-500';
+        return;
+      }
+      btn.disabled = true; btn.textContent = 'Skapar...';
+      msg.textContent = '';
+      try {
+        const res = await fetch('/api/children', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getToken() },
+          body: JSON.stringify({
+            name: document.getElementById('childName').value.trim(),
+            emoji: selectedEmoji,
+            birthday: document.getElementById('childBirthday').value,
+            pin: document.getElementById('childPin').value.trim() || undefined,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          if (data.code === 'DUPLICATE_CHILD_NAME' && data.suggestions) {
+            const suggestionsHtml = data.suggestions.map(s =>
+              `<button type="button" class="inline-block px-3 py-1 bg-gold-light text-navy rounded-full text-xs font-semibold hover:bg-gold hover:text-white transition-colors mr-1 mb-1" onclick="document.getElementById('childName').value='${s.replace(/'/g, "\\'")}';">${s}</button>`
+            ).join('');
+            msg.innerHTML = `<span class="text-red-500">${data.error}</span><br><span class="text-text-soft text-xs">Förslag:</span> ${suggestionsHtml}`;
+            msg.className = 'text-sm';
+          } else {
+            msg.textContent = data.error || 'Nätverksfel';
+            msg.className = 'text-sm text-red-500';
+          }
+          btn.disabled = false; btn.textContent = 'Lägg till';
+          return;
+        }
+        document.getElementById('addChildModal').classList.add('hidden');
+        document.getElementById('addChildForm').reset();
+        selectedEmoji = '';
+        document.querySelectorAll('.emoji-opt').forEach(b => b.classList.remove('border-gold', 'bg-gold-light'));
+        document.getElementById('createdEmoji').textContent = data.emoji;
+        document.getElementById('createdName').textContent = data.name + ' har lagts till!';
+        document.getElementById('createdPin').textContent = data.pin;
+        document.getElementById('childCreatedModal').classList.remove('hidden');
+      } catch (err) {
+        msg.textContent = err.message || 'Nätverksfel';
+        msg.className = 'text-sm text-red-500';
+      }
+      btn.disabled = false; btn.textContent = 'Lägg till';
+    });
+
+    document.getElementById('editChildForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('editChildMsg');
+      const btn = document.getElementById('editChildSubmit');
+      const childId = document.getElementById('editChildId').value;
+      const name = document.getElementById('editChildName').value.trim();
+      const emoji = editSelectedEmoji || document.getElementById('editChildEmoji').value;
+      const birthday = document.getElementById('editChildBirthday').value;
+      if (!name) { msg.textContent = 'Namn krävs'; msg.className = 'text-sm text-red-500'; return; }
+      btn.disabled = true; btn.textContent = 'Sparar...'; msg.textContent = '';
+      try {
+        const res = await fetch(`/api/children/${childId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + Auth.getToken() },
+          body: JSON.stringify({ name, emoji, birthday }),
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          msg.textContent = data.error || 'Nätverksfel'; msg.className = 'text-sm text-red-500';
+          btn.disabled = false; btn.textContent = 'Spara ändringar'; return;
+        }
+        msg.textContent = 'Sparat!'; msg.className = 'text-sm text-green-600';
+        setTimeout(() => { document.getElementById('editChildModal').classList.add('hidden'); loadDashboard(); }, 1000);
+      } catch (err) { msg.textContent = err.message || 'Nätverksfel'; msg.className = 'text-sm text-red-500'; }
+      btn.disabled = false; btn.textContent = 'Spara ändringar';
+    });
+
+    document.getElementById('editPinForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const msg = document.getElementById('editPinMsg');
+      const childId = document.getElementById('editPinChildId').value;
+      const pin = document.getElementById('newPin').value;
+      if (!/^\d{4}$/.test(pin)) { msg.textContent = 'PIN måste vara 4 siffror'; msg.className = 'text-sm text-red-500'; return; }
+      try {
+        const data = await Auth.api(`/api/children/${childId}/pin`, { method: 'PUT', body: JSON.stringify({ pin }) });
+        msg.textContent = data.message || 'PIN ändrad!'; msg.className = 'text-sm text-green-600';
+        setTimeout(() => document.getElementById('editPinModal').classList.add('hidden'), 1500);
+      } catch (err) { msg.textContent = err.message || 'Nätverksfel'; msg.className = 'text-sm text-red-500'; }
+    });
+
+    // ── Dark mode toggle ───────────────────────────────────
+
+    function toggleDarkMode() {
+      const isDark = Theme.toggleDark();
+      updateDarkModeUI(isDark);
+    }
+
+    function updateDarkModeUI(isDark) {
+      const icon = document.getElementById('darkModeIcon');
+      const label = document.getElementById('darkModeLabel');
+      if (icon) icon.textContent = isDark ? '☀️' : '🌙';
+      if (label) label.textContent = isDark ? 'Ljust läge' : 'Mörkt läge';
+    }
+
+    // ── Feedback modal ─────────────────────────────────────
+
+    function openFeedbackModal() {
+      document.getElementById('feedbackModal').classList.remove('hidden');
+      document.getElementById('feedbackMsg').textContent = '';
+      document.getElementById('feedbackMsg').className = 'text-sm';
+      document.getElementById('feedbackTitle').value = '';
+      document.getElementById('feedbackMessage').value = '';
+    }
+
+    function closeFeedbackModal() {
+      document.getElementById('feedbackModal').classList.add('hidden');
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('feedbackSubmitBtn');
+        const msg = document.getElementById('feedbackMsg');
+        const type = document.querySelector('input[name="feedbackType"]:checked')?.value || 'bug';
+        const title = document.getElementById('feedbackTitle').value.trim();
+        const message = document.getElementById('feedbackMessage').value.trim();
+
+        if (!title || !message) {
+          msg.textContent = 'Fyll i alla fält.'; msg.className = 'text-sm text-red-500';
+          return;
+        }
+
+        btn.disabled = true; btn.textContent = 'Skickar...';
+        try {
+          const data = await Auth.api('/api/feedback', { method: 'POST', body: JSON.stringify({ type, title, message }) });
+          msg.textContent = data.message; msg.className = 'text-sm text-green-600';
+          setTimeout(() => closeFeedbackModal(), 2000);
+        } catch (err) {
+          msg.textContent = err.message || 'Något gick fel.'; msg.className = 'text-sm text-red-500';
+        }
+        btn.disabled = false; btn.textContent = 'Skicka';
+      });
+    });
+
+    // ── Init ───────────────────────────────────────────────
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      try {
+        Auth.requireAuth();
+        const me = await Auth.api('/api/auth/me');
+        document.getElementById('userEmail').textContent = me.email;
+        document.getElementById('welcomeText').textContent = `Välkommen, ${me.email.split('@')[0]}!`;
+        updateDarkModeUI(Theme.isDark());
+
+        const dayLabel = formatDayLabel();
+        document.getElementById('todayLabel').textContent = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+        document.getElementById('todayLabelMobile').textContent = dayLabel.charAt(0).toUpperCase() + dayLabel.slice(1);
+
+        document.getElementById('logoutBtn').addEventListener('click', () => Auth.logout());
+
+        await loadDashboard();
+        await loadRewards();
+      } catch (error) {
+        console.error('Dashboard init failed:', error);
+        Auth.clearAuth();
+        window.location.href = '/login';
+      }
+    });
+
+    // ── Rewards Management ────────────────────────────────────
+    let allRewards = [];
+
+    async function loadRewards() {
+      try {
+        const rewards = await Auth.api('/api/rewards');
+        allRewards = rewards;
+        renderRewardsList(rewards);
+        await loadRedemptions();
+        initDashboardDnD();
+      } catch (err) {
+        document.getElementById('rewardsList').innerHTML = '<p class="text-text-soft text-sm text-center py-4">Kunde inte ladda belöningar.</p>';
+      }
+    }
+
+    function renderRewardsList(rewards) {
+      const container = document.getElementById('rewardsList');
+      if (!rewards || rewards.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-8 bg-sky rounded-xl">
+            <p class="text-3xl mb-2">🎁</p>
+            <p class="font-semibold text-navy text-sm">Inga belöningar skapade</p>
+            <p class="text-text-soft text-xs mt-1">Skapa belöningar som barnen kan lösa in med sina stjärnor!</p>
+          </div>`;
+        return;
+      }
+      container.innerHTML = rewards.map(r => `
+        <div class="flex items-center gap-3 bg-sky rounded-xl px-4 py-3 draggable-item" data-reward-id="${r.id}">
+          <span class="drag-handle text-lg select-none cursor-grab flex-shrink-0" title="Dra för att ändra ordning">⠿</span>
+          <span class="text-2xl flex-shrink-0">${escHtml(r.icon || '🎁')}</span>
+          <div class="flex-1 min-w-0">
+            <p class="font-semibold text-navy text-sm truncate">${escHtml(r.name)}</p>
+            <p class="text-xs text-text-soft">⭐ ${r.star_cost} stjärnor${r.requires_approval ? ' · Kräver godkännande' : ' · Auto-godkänd'}${!r.is_active ? ' · <span class=text-red-500>Inaktiv</span>' : ''}</p>
+          </div>
+          <div class="flex gap-1 flex-shrink-0">
+            <button onclick="openEditRewardModal('${r.id}')" class="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-lavender transition-colors text-sm" title="Redigera">✏️</button>
+            <button onclick="deleteReward('${r.id}', '${escHtml(r.name)}')" class="min-w-[44px] min-h-[44px] flex items-center justify-center p-2 rounded-lg hover:bg-coral transition-colors text-sm" title="Ta bort">🗑️</button>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function loadRedemptions() {
+      try {
+        const data = await Auth.api('/api/rewards/redemptions');
+        const pending = (data || []).filter(r => r.status === 'pending');
+        const section = document.getElementById('pendingRedemptionsSection');
+        const container = document.getElementById('pendingRedemptionItems');
+        if (pending.length === 0) {
+          section.classList.add('hidden');
+          return;
+        }
+        section.classList.remove('hidden');
+        window._pendingRedemptions = pending;
+        container.innerHTML = pending.map(r => `
+          <div class="flex items-center gap-3 bg-gold-light rounded-xl px-4 py-3 draggable-item" data-redemption-id="${r.id}">
+            <span class="drag-handle text-lg select-none cursor-grab flex-shrink-0" title="Dra för att ändra ordning">⠿</span>
+            <span class="text-xl flex-shrink-0">${escHtml(r.reward_icon || '🎁')}</span>
+            <div class="flex-1 min-w-0">
+              <p class="font-semibold text-navy text-sm">${escHtml(r.child_name)} vill ha: ${escHtml(r.reward_name)}</p>
+              <p class="text-xs text-text-soft">⭐ ${r.star_cost} stjärnor</p>
+            </div>
+            <div class="flex gap-1">
+              <button onclick="approveRedemption('${r.id}')" class="min-h-[44px] px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center">✓ Godkänn</button>
+              <button onclick="denyRedemption('${r.id}')" class="min-h-[44px] px-3 py-2 bg-red-400 hover:bg-red-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center">✕ Neka</button>
+            </div>
+          </div>
+        `).join('');
+        initDashboardDnD();
+      } catch (err) {
+        console.error('Redemptions load error:', err);
+      }
+    }
+
+    async function approveRedemption(id) {
+      try {
+        await Auth.api('/api/rewards/redemptions/' + id + '/approve', { method: 'PUT' });
+        await loadRedemptions();
+        initDashboardDnD();
+        await loadDashboard();
+      } catch (err) { alert(err.message); }
+    }
+
+    async function denyRedemption(id) {
+      try {
+        await Auth.api('/api/rewards/redemptions/' + id + '/deny', { method: 'PUT' });
+        await loadRedemptions();
+        initDashboardDnD();
+        await loadDashboard();
+      } catch (err) { alert(err.message); }
+    }
+
+    // ── Reward & Redemption Drag & Drop (sortablejs) ─────────
+    let rewardsSortable = null;
+    let redemptionsSortable = null;
+
+    function initDashboardDnD() {
+      if (typeof Sortable === 'undefined') return;
+
+      const rewardsContainer = document.getElementById('rewardsList');
+      const redemptionsContainer = document.getElementById('pendingRedemptionItems');
+
+      // Destroy old instances
+      if (rewardsSortable) { rewardsSortable.destroy(); rewardsSortable = null; }
+      if (redemptionsSortable) { redemptionsSortable.destroy(); redemptionsSortable = null; }
+
+      // Rewards sortable
+      if (rewardsContainer && rewardsContainer.children.length > 1) {
+        rewardsSortable = Sortable.create(rewardsContainer, {
+          animation: 150,
+          handle: '.drag-handle',
+          forceFallback: true, // use SortableJS touch/mouse polyfill instead of native DnD (mobile required)
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          onEnd: async function(evt) {
+            const order = [];
+            rewardsContainer.querySelectorAll('[data-reward-id]').forEach((el, idx) => {
+              order.push({ id: el.dataset.rewardId, sort_order: idx });
+            });
+            const prevRewards = allRewards.slice();
+            allRewards = order.map(({ id, sort_order }) => {
+              const r = prevRewards.find(x => x.id === id) || {};
+              return { ...r, id, sort_order };
+            });
+            renderRewardsList(allRewards);
+            initDashboardDnD();
+            try {
+              await Auth.api('/api/rewards/reorder', {
+                method: 'PUT',
+                body: JSON.stringify({ order }),
+              });
+            } catch (err) {
+              allRewards = prevRewards;
+              renderRewardsList(prevRewards);
+              initDashboardDnD();
+              showToast('Kunde inte spara ordningen', true);
+            }
+          },
+        });
+      }
+
+      // Pending redemptions sortable
+      if (redemptionsContainer && redemptionsContainer.children.length > 1) {
+        redemptionsSortable = Sortable.create(redemptionsContainer, {
+          animation: 150,
+          handle: '.drag-handle',
+          forceFallback: true, // use SortableJS touch/mouse polyfill instead of native DnD (mobile required)
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          onEnd: async function(evt) {
+            const order = [];
+            redemptionsContainer.querySelectorAll('[data-redemption-id]').forEach((el, idx) => {
+              order.push({ id: el.dataset.redemptionId, sort_order: idx });
+            });
+            const prevRedemptions = [...(window._pendingRedemptions || [])];
+            window._pendingRedemptions = order.map(({ id, sort_order }) => {
+              const r = prevRedemptions.find(x => x.id === id) || {};
+              return { ...r, id, sort_order };
+            });
+            const section = document.getElementById('pendingRedemptionsSection');
+            const container = document.getElementById('pendingRedemptionItems');
+            container.innerHTML = window._pendingRedemptions.map(r => `
+              <div class="flex items-center gap-3 bg-gold-light rounded-xl px-4 py-3 draggable-item" data-redemption-id="${r.id}">
+                <span class="drag-handle text-lg select-none cursor-grab flex-shrink-0" title="Dra för att ändra ordning">⠿</span>
+                <span class="text-xl flex-shrink-0">${escHtml(r.reward_icon || '🎁')}</span>
+                <div class="flex-1 min-w-0">
+                  <p class="font-semibold text-navy text-sm">${escHtml(r.child_name)} vill ha: ${escHtml(r.reward_name)}</p>
+                  <p class="text-xs text-text-soft">⭐ ${r.star_cost} stjärnor</p>
+                </div>
+                <div class="flex gap-1">
+                  <button onclick="approveRedemption('${r.id}')" class="min-h-[44px] px-3 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center">✓ Godkänn</button>
+                  <button onclick="denyRedemption('${r.id}')" class="min-h-[44px] px-3 py-2 bg-red-400 hover:bg-red-500 text-white rounded-lg text-xs font-semibold transition-colors flex items-center justify-center">✕ Neka</button>
+                </div>
+              </div>
+            `).join('');
+            initDashboardDnD();
+            try {
+              await Auth.api('/api/rewards/redemptions/reorder', {
+                method: 'PUT',
+                body: JSON.stringify({ order }),
+              });
+            } catch (err) {
+              window._pendingRedemptions = prevRedemptions;
+              const s = document.getElementById('pendingRedemptionsSection');
+              const c = document.getElementById('pendingRedemptionItems');
+              c.innerHTML = prevRedemptions.map(r => `
+                <div class="flex items-center gap-3 bg-gold-light rounded-xl px-4 py-3 draggable-item" data-redemption-id="${r.id}">
+                  <span class="drag-handle text-lg select-none cursor-grab flex-shrink-0" title="Dra för att ändra ordning">⠿</span>
+                  <span class="text-xl flex-shrink-0">${escHtml(r.reward_icon || '🎁')}</span>
+                  <div class="flex-1 min-w-0">
+                    <p class="font-semibold text-navy text-sm">${escHtml(r.child_name)} vill ha: ${escHtml(r.reward_name)}</p>
+                    <p class="text-xs text-text-soft">⭐ ${r.star_cost} stjärnor</p>
+                  </div>
+                  <div class="flex gap-1">
+                    <button onclick="approveRedemption('${r.id}')" class="px-3 py-1.5 bg-green-500 hover:bg-green-600 text-white rounded-lg text-xs font-semibold transition-colors">✓ Godkänn</button>
+                    <button onclick="denyRedemption('${r.id}')" class="px-3 py-1.5 bg-red-400 hover:bg-red-500 text-white rounded-lg text-xs font-semibold transition-colors">✕ Neka</button>
+                  </div>
+                </div>
+              `).join('');
+              initDashboardDnD();
+              showToast('Kunde inte spara ordningen', true);
+            }
+          },
+        });
+      }
+    }
+
+    // ── Reward emoji picker ─────────────────────────────────
+    function selectRewardEmoji(emoji) {
+      document.getElementById('rewardIcon').value = emoji;
+      document.querySelectorAll('.reward-emoji-opt').forEach(btn => {
+        btn.classList.toggle('border-gold', btn.dataset.emoji === emoji);
+        btn.classList.toggle('bg-gold-light', btn.dataset.emoji === emoji);
+        btn.classList.toggle('border-transparent', btn.dataset.emoji !== emoji);
+      });
+    }
+    document.getElementById('rewardEmojiPicker').addEventListener('click', function(e) {
+      const btn = e.target.closest('.reward-emoji-opt');
+      if (btn) selectRewardEmoji(btn.dataset.emoji);
+    });
+
+    function openAddRewardModal() {
+      document.getElementById('rewardModalTitle').textContent = 'Ny belöning';
+      document.getElementById('rewardId').value = '';
+      document.getElementById('rewardName').value = '';
+      document.getElementById('rewardIcon').value = '🎁';
+      selectRewardEmoji('🎁');
+      document.getElementById('rewardStarCost').value = '5';
+      document.getElementById('rewardApproval').checked = true;
+      document.getElementById('rewardActive').checked = true;
+      document.getElementById('rewardMsg').textContent = '';
+      document.getElementById('rewardModal').classList.remove('hidden');
+    }
+
+    function openEditRewardModal(id) {
+      const r = allRewards.find(x => x.id === id);
+      if (!r) return;
+      document.getElementById('rewardModalTitle').textContent = 'Redigera belöning';
+      document.getElementById('rewardId').value = r.id;
+      document.getElementById('rewardName').value = r.name;
+      document.getElementById('rewardIcon').value = r.icon || '🎁';
+      selectRewardEmoji(r.icon || '🎁');
+      document.getElementById('rewardStarCost').value = r.star_cost;
+      document.getElementById('rewardApproval').checked = r.requires_approval;
+      document.getElementById('rewardActive').checked = r.is_active;
+      document.getElementById('rewardMsg').textContent = '';
+      document.getElementById('rewardModal').classList.remove('hidden');
+    }
+
+    function closeRewardModal() {
+      document.getElementById('rewardModal').classList.add('hidden');
+    }
+
+    async function submitReward() {
+      const id = document.getElementById('rewardId').value;
+      const name = document.getElementById('rewardName').value.trim();
+      const icon = document.getElementById('rewardIcon').value.trim() || '🎁';
+      const star_cost = parseInt(document.getElementById('rewardStarCost').value) || 5;
+      const requires_approval = document.getElementById('rewardApproval').checked;
+      const is_active = document.getElementById('rewardActive').checked;
+      const msg = document.getElementById('rewardMsg');
+
+      if (!name) { msg.textContent = 'Namn krävs'; msg.className = 'text-sm text-red-500'; return; }
+      if (star_cost < 1) { msg.textContent = 'Stjärnkostnad måste vara minst 1'; msg.className = 'text-sm text-red-500'; return; }
+
+      try {
+        if (id) {
+          await Auth.api('/api/rewards/' + id, { method: 'PUT', body: JSON.stringify({ name, icon, star_cost, requires_approval, is_active }) });
+        } else {
+          await Auth.api('/api/rewards', { method: 'POST', body: JSON.stringify({ name, icon, star_cost, requires_approval, is_active }) });
+        }
+        closeRewardModal();
+        await loadRewards();
+      } catch (err) {
+        msg.textContent = err.message || 'Fel uppstod';
+        msg.className = 'text-sm text-red-500';
+      }
+    }
+
+    async function deleteReward(id, name) {
+      if (!confirm('Ta bort belöningen "' + name + '"?')) return;
+      try {
+        await Auth.api('/api/rewards/' + id, { method: 'DELETE' });
+        await loadRewards();
+      } catch (err) { alert(err.message); }
+    }
+  </script>
+
+  <!-- Reward Modal -->
+  <div id="rewardModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-navy-soft rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 id="rewardModalTitle" class="text-lg font-heading font-bold text-navy dark:text-white">Ny belöning</h3>
+        <button onclick="closeRewardModal()" class="text-text-soft hover:text-navy p-1 rounded-lg transition-colors">✕</button>
+      </div>
+      <input type="hidden" id="rewardId">
+      <div class="space-y-4">
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Namn *</label>
+          <input type="text" id="rewardName" required maxlength="100" placeholder="T.ex. Glass, Filmkväll..."
+            class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Ikon</label>
+          <div class="flex gap-2 flex-wrap" id="rewardEmojiPicker">
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎁">🎁</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🍿">🍿</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🍦">🍦</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="📚">📚</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎮">🎮</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎬">🎬</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🧸">🧸</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="⭐">⭐</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎨">🎨</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🏊">🏊</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎵">🎵</button>
+            <button type="button" class="reward-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🍕">🍕</button>
+          </div>
+          <input type="hidden" id="rewardIcon" value="🎁">
+        </div>
+        <div>
+          <label class="block text-sm font-semibold text-navy mb-1">Stjärnkostnad ⭐</label>
+          <input type="number" id="rewardStarCost" value="5" min="1" max="999"
+            class="w-full px-4 py-3 rounded-xl border-2 border-lavender focus:border-gold outline-none transition-colors">
+        </div>
+        <div class="flex flex-col gap-2">
+          <label for="rewardApproval" class="checkbox-touch text-sm text-navy">
+            <input type="checkbox" id="rewardApproval" checked>
+            <span>Kräver föräldragodkännande</span>
+          </label>
+          <label for="rewardActive" class="checkbox-touch text-sm text-navy">
+            <input type="checkbox" id="rewardActive" checked>
+            <span>Aktiv (synlig för barn)</span>
+          </label>
+        </div>
+        <div id="rewardMsg" class="text-sm min-h-[1.2em]"></div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeRewardModal()"
+            class="flex-1 py-3 bg-lavender hover:bg-sky text-navy rounded-xl font-semibold transition-colors text-sm">Avbryt</button>
+          <button type="button" onclick="submitReward()"
+            class="flex-1 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors text-sm">Spara</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback Modal -->
+  <div id="feedbackModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-navy-soft rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-heading font-bold text-navy dark:text-white">💬 Ge feedback</h3>
+        <button onclick="closeFeedbackModal()" class="text-text-soft hover:text-navy dark:hover:text-white p-1 rounded-lg transition-colors">✕</button>
+      </div>
+      <form id="feedbackForm" class="space-y-4">
+        <div class="flex gap-3">
+          <label class="flex items-center gap-2 cursor-pointer flex-1 p-3 rounded-xl border-2 border-lavender hover:border-gold transition-colors">
+            <input type="radio" name="feedbackType" value="bug" checked class="accent-gold">
+            <span class="font-semibold text-sm text-navy dark:text-white">🐛 Rapportera problem</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer flex-1 p-3 rounded-xl border-2 border-lavender hover:border-gold transition-colors">
+            <input type="radio" name="feedbackType" value="suggestion" class="accent-gold">
+            <span class="font-semibold text-sm text-navy dark:text-white">💡 Föreslå förbättring</span>
+          </label>
+        </div>
+        <input type="text" id="feedbackTitle" placeholder="Rubrik" required maxlength="100"
+          class="w-full px-4 py-3 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors dark:bg-navy dark:text-white dark:border-navy-soft">
+        <textarea id="feedbackMessage" placeholder="Beskriv problemet eller förbättringsförslaget..." required rows="4"
+          class="w-full px-4 py-3 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors resize-none dark:bg-navy dark:text-white dark:border-navy-soft"></textarea>
+        <div id="feedbackMsg" class="text-sm min-h-[1.2em]"></div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeFeedbackModal()"
+            class="flex-1 py-3 bg-lavender hover:bg-sky text-navy rounded-xl font-semibold transition-colors text-sm">Avbryt</button>
+          <button type="submit" id="feedbackSubmitBtn"
+            class="flex-1 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors text-sm">Skicka</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</body>
+</html>

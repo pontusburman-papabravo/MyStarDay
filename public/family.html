@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Familj - Min Stjärndag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gold: '#F5A623', 'gold-light': '#FFF3D6', navy: '#1B2340', 'navy-soft': '#2A3458',
+            sky: '#E8F0FE', lavender: '#EDE7F6', mint: '#E0F5EC', coral: '#FDEAE7', 'text-soft': '#5A6178',
+          },
+          fontFamily: { heading: ['Outfit', 'sans-serif'], body: ['Plus Jakarta Sans', 'sans-serif'] },
+        },
+      },
+    }
+  </script>
+  <link rel="stylesheet" href="/css/theme.css">
+  <script src="/js/theme.js"></script>
+  <script src="/js/auth.js"></script>
+  <script src="/js/i18n.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.3/Sortable.min.js"></script>
+  <style>
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+    .fade-in { animation: fadeIn 0.3s ease forwards; }
+    .inline-edit:focus { outline: 2px solid #F5A623; outline-offset: 2px; border-radius: 4px; }
+    .card-hover { transition: box-shadow 0.2s, transform 0.2s; }
+    .card-hover:hover { box-shadow: 0 4px 16px rgba(27,35,64,0.12); transform: translateY(-1px); }
+    .child-card-wrap { touch-action: none; }
+    .child-card-wrap.sortable-ghost { opacity: 0.4; background: #FFF3D6; border: 2px dashed #F5A623; }
+    .child-card-wrap.sortable-chosen { box-shadow: 0 8px 24px rgba(245,166,35,0.3); transform: scale(1.02); }
+    .drag-handle { cursor: grab; color: #9AA0B8; user-select: none; touch-action: none; }
+    .drag-handle:active { cursor: grabbing; }
+  </style>
+</head>
+<body class="bg-white font-body text-navy dark:bg-navy dark:text-white">
+  <div class="min-h-screen flex flex-col md:flex-row">
+    <!-- Mobile Top Bar -->
+    <div class="md:hidden bg-navy text-white p-4 flex items-center justify-between sticky top-0 z-20">
+      <div class="flex items-center gap-2">
+        <span class="text-xl">⭐</span>
+        <h1 class="text-lg font-heading font-bold">Min Stjärndag</h1>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="toggleDarkMode()" class="p-2 hover:bg-navy-soft rounded-lg transition-colors text-lg" title="Mörkt läge">🌙</button>
+        <button id="menuToggle" class="p-2 hover:bg-navy-soft rounded-lg transition-colors">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Sidebar -->
+    <nav id="sidebar" class="hidden md:block w-full md:w-64 bg-navy text-white p-4 md:p-6 md:min-h-screen">
+      <div class="hidden md:flex items-center gap-3 mb-8">
+        <span class="text-2xl">⭐</span>
+        <h1 class="text-xl font-heading font-bold">Min Stjärndag</h1>
+      </div>
+      <ul class="space-y-2">
+        <li><a href="/dashboard" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Min panel</a></li>
+        <li><a href="/family" class="block px-4 py-3 rounded-lg bg-gold text-navy font-semibold">Familj</a></li>
+        <li><a href="/daily-log" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Daglig logg</a></li>
+        <li><a href="/activities" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Aktiviteter</a></li>
+        <li><a href="/schedule" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Veckoschema</a></li>
+        <li><a href="/settings" class="block px-4 py-3 text-white hover:bg-navy-soft rounded-lg transition-colors">Inställningar</a></li>
+      </ul>
+      <div class="mt-8 pt-4 border-t border-navy-soft space-y-2">
+        <button onclick="toggleDarkMode()" class="w-full px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors text-left flex items-center gap-2">
+          <span id="darkModeIcon">🌙</span> <span id="darkModeLabel">Mörkt läge</span>
+        </button>
+        <button onclick="openFeedbackModal()" class="w-full px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors text-left flex items-center gap-2">
+          <span>💬</span> Ge feedback
+        </button>
+        <button id="logoutBtn" class="w-full px-4 py-2 bg-coral hover:bg-red-200 text-navy rounded-lg font-semibold transition-colors">Logga ut</button>
+      </div>
+    </nav>
+
+    <!-- Main -->
+    <main class="flex-1 flex flex-col">
+      <div class="hidden md:flex bg-sky border-b border-lavender p-4 md:p-6 justify-between items-center">
+        <div>
+          <h2 class="text-xl font-heading font-bold text-navy">Familj</h2>
+          <p id="todayLabel" class="text-sm text-text-soft"></p>
+        </div>
+        <span id="userEmail" class="text-sm text-text-soft"></span>
+      </div>
+
+      <div class="flex-1 p-4 md:p-8 overflow-auto space-y-8">
+
+        <!-- ─── Family Info Section ─────────────────────────── -->
+        <section id="familyInfoSection" class="bg-sky dark:bg-navy-soft rounded-2xl p-4 md:p-6 fade-in hidden">
+          <h3 class="text-lg font-heading font-bold text-navy dark:text-white mb-4">Familjeinställningar</h3>
+          <div class="flex flex-col md:flex-row gap-4 items-start md:items-end">
+            <div class="flex-1">
+              <label class="block text-sm font-medium text-text-soft mb-1">Familjenamn</label>
+              <input id="familyNameInput" type="text"
+                class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body inline-edit"
+                placeholder="Familjenamn" />
+            </div>
+            <!-- Timezone selector removed for v1 -->
+            <button onclick="saveFamily()"
+              class="px-5 py-2 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors whitespace-nowrap">
+              Spara
+            </button>
+          </div>
+          <p id="familySaveMsg" class="mt-2 text-sm text-gold font-medium hidden"></p>
+        </section>
+
+        <!-- ─── Children Section ──────────────────────────────── -->
+        <section>
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg md:text-xl font-heading font-bold text-navy dark:text-white">Barn</h3>
+            <button onclick="document.getElementById('addChildModal').classList.remove('hidden')"
+              class="px-3 py-1.5 text-sm bg-gold hover:bg-yellow-500 text-white rounded-lg font-semibold transition-colors">
+              + Lägg till barn
+            </button>
+          </div>
+
+          <!-- Child switcher tabs -->
+          <div id="childSwitcherTabs" class="hidden flex gap-2 flex-wrap mb-4"></div>
+
+          <!-- Children grid -->
+          <div id="childrenGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+          <!-- Empty state: no children -->
+          <div id="noChildrenState" class="hidden text-center py-16 bg-sky dark:bg-navy-soft rounded-2xl">
+            <p class="text-6xl mb-4">👶</p>
+            <p class="text-xl font-heading font-bold text-navy dark:text-white mb-2">Inga barn tillagda än</p>
+            <p class="text-text-soft text-sm mb-6">Lägg till ditt första barn för att komma igång!</p>
+            <button onclick="document.getElementById('addChildModal').classList.remove('hidden')"
+              class="px-6 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors">
+              + Lägg till barn
+            </button>
+          </div>
+        </section>
+
+        <!-- ─── Adults Section ────────────────────────────────── -->
+        <section>
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg md:text-xl font-heading font-bold text-navy dark:text-white">Vuxna</h3>
+            <div class="flex gap-2">
+              <button id="inviteBtn" onclick="document.getElementById('inviteModal').classList.remove('hidden')"
+                class="hidden px-3 py-1.5 text-sm bg-lavender hover:bg-purple-100 text-navy border border-purple-200 rounded-lg font-semibold transition-colors dark:bg-purple-900 dark:text-purple-100 dark:border-purple-700">
+                + Bjud in förälder
+              </button>
+              <button onclick="document.getElementById('addAdultModal').classList.remove('hidden')"
+                class="px-3 py-1.5 text-sm bg-navy hover:bg-navy-soft text-white rounded-lg font-semibold transition-colors dark:bg-gold dark:hover:bg-yellow-500 dark:text-white">
+                + Lägg till vuxen
+              </button>
+            </div>
+          </div>
+
+          <!-- Adults grid -->
+          <div id="adultsGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+
+          <!-- Empty state: no adults (shouldn't happen normally) -->
+          <div id="noAdultsState" class="hidden text-center py-16 bg-sky dark:bg-navy-soft rounded-2xl">
+            <p class="text-6xl mb-4">👨‍👩‍👧</p>
+            <p class="text-xl font-heading font-bold text-navy dark:text-white mb-2">Inga vuxna tillagda än</p>
+            <p class="text-text-soft text-sm mb-6">Skapa ett konto åt en annan vuxen i din familj!</p>
+            <button onclick="document.getElementById('addAdultModal').classList.remove('hidden')"
+              class="px-6 py-3 bg-navy hover:bg-navy-soft text-white rounded-xl font-heading font-bold transition-colors dark:bg-gold dark:hover:bg-yellow-500 dark:text-white">
+              + Lägg till vuxen
+            </button>
+          </div>
+
+          <!-- Pending invites (hidden from regular parents - shown for admin only in admin panel) -->
+          <div id="pendingInvitesSection" class="hidden mt-6">
+            <h4 class="text-base font-heading font-semibold text-navy dark:text-white mb-3">Väntande inbjudningar</h4>
+            <div id="pendingInvitesList" class="space-y-2"></div>
+          </div>
+        </section>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- ─── Add Child Modal ──────────────────────────────── -->
+  <div id="addChildModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4">
+    <div class="bg-white dark:bg-navy rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy dark:text-white">Lägg till barn</h3>
+        <button onclick="closeModal('addChildModal')" class="text-text-soft hover:text-navy text-2xl leading-none">×</button>
+      </div>
+      <form id="addChildForm" onsubmit="addChild(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Barnets namn</label>
+          <input id="childNameInput" type="text" required
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="T.ex. Emma" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Emoji</label>
+          <div class="flex gap-2 flex-wrap" id="addChildEmojiPicker">
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👧">👧</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👦">👦</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🧒">🧒</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👶">👶</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🌟">🌟</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🦄">🦄</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐱">🐱</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐶">🐶</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐻">🐻</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🦊">🦊</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🌈">🌈</button>
+            <button type="button" class="add-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎀">🎀</button>
+          </div>
+          <input type="hidden" id="childEmojiInput">
+          <p id="addEmojiError" class="text-xs text-red-500 mt-1 hidden">Välj en emoji</p>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Födelsedatum <span class="text-xs">(valfritt)</span></label>
+          <input id="childBirthdayInput" type="date"
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body" />
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('addChildModal')"
+            class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 text-text-soft rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Avbryt
+          </button>
+          <button type="submit"
+            class="flex-1 px-4 py-2 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors">
+            Lägg till
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Delete Confirmation Modal ──────────────────── -->
+  <div id="deleteModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4">
+    <div class="bg-white dark:bg-navy rounded-2xl p-6 w-full max-w-sm shadow-2xl">
+      <div class="text-center">
+        <p class="text-5xl mb-4">⚠️</p>
+        <h3 class="text-xl font-heading font-bold text-navy dark:text-white mb-2">Ta bort <span id="deleteTargetName"></span>?</h3>
+        <p class="text-text-soft text-sm mb-6" id="deleteTargetMessage"></p>
+        <div class="flex gap-3">
+          <button onclick="closeModal('deleteModal')"
+            class="flex-1 px-4 py-2 border border-gray-200 text-text-soft rounded-xl font-semibold hover:bg-gray-50 transition-colors">
+            Avbryt
+          </button>
+          <button id="confirmDeleteBtn"
+            class="flex-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-xl font-heading font-bold transition-colors">
+            Ta bort
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ─── Edit Child Modal ─────────────────────────────── -->
+  <div id="editChildModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4">
+    <div class="bg-white dark:bg-navy rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy dark:text-white">Redigera barn</h3>
+        <button onclick="closeModal('editChildModal')" class="text-text-soft hover:text-navy text-2xl leading-none">×</button>
+      </div>
+      <form id="editChildForm" onsubmit="saveEditChild(event)" class="space-y-4">
+        <input type="hidden" id="editChildId">
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Barnets namn</label>
+          <input id="editChildNameInput" type="text" required
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="T.ex. Emma" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Emoji</label>
+          <div class="flex gap-2 flex-wrap" id="editChildEmojiPicker">
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👧">👧</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👦">👦</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🧒">🧒</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="👶">👶</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🌟">🌟</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🦄">🦄</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐱">🐱</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐶">🐶</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🐻">🐻</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🦊">🦊</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🌈">🌈</button>
+            <button type="button" class="edit-emoji-opt text-2xl p-2 rounded-lg border-2 border-transparent hover:border-gold transition-colors" data-emoji="🎀">🎀</button>
+          </div>
+          <input type="hidden" id="editChildEmojiInput">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Födelsedatum <span class="text-xs">(valfritt)</span></label>
+          <input id="editChildBirthdayInput" type="date"
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Ny PIN-kod <span class="text-xs">(lämna tomt för att behålla)</span></label>
+          <input id="editChildPinInput" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4"
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="4 siffror" />
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('editChildModal')"
+            class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 text-text-soft rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Avbryt
+          </button>
+          <button type="submit"
+            class="flex-1 px-4 py-2 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors">
+            Spara
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Add Adult Modal ──────────────────────────────── -->
+  <div id="addAdultModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4">
+    <div class="bg-white dark:bg-navy rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy dark:text-white">Lägg till vuxen</h3>
+        <button onclick="closeModal('addAdultModal')" class="text-text-soft hover:text-navy text-2xl leading-none">×</button>
+      </div>
+      <form id="addAdultForm" onsubmit="addAdult(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Namn</label>
+          <input id="addAdultNameInput" type="text" required
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="T.ex. Anna Svensson" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">E-postadress</label>
+          <input id="addAdultEmailInput" type="email" required
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="namn@exempel.se" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">Lösenord</label>
+          <input id="addAdultPasswordInput" type="password" required minlength="6"
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="Minst 6 tecken" />
+        </div>
+        <p id="addAdultMsg" class="text-sm text-text-soft"></p>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('addAdultModal')"
+            class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 text-text-soft rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Avbryt
+          </button>
+          <button type="submit"
+            class="flex-1 px-4 py-2 bg-navy hover:bg-navy-soft text-white rounded-xl font-heading font-bold transition-colors dark:bg-gold dark:hover:bg-yellow-500">
+            Skapa konto
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- ─── Invite Modal (admin only — regular parents use "Lägg till vuxen") -->
+  <div id="inviteModal" class="hidden fixed inset-0 bg-black/40 flex items-center justify-center z-30 p-4">
+    <div class="bg-white dark:bg-navy rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex justify-between items-center mb-6">
+        <h3 class="text-xl font-heading font-bold text-navy dark:text-white">Bjud in förälder</h3>
+        <button onclick="closeModal('inviteModal')" class="text-text-soft hover:text-navy text-2xl leading-none">×</button>
+      </div>
+      <form id="inviteForm" onsubmit="sendInvite(event)" class="space-y-4">
+        <div>
+          <label class="block text-sm font-medium text-text-soft mb-1">E-postadress</label>
+          <input id="inviteEmailInput" type="email" required
+            class="w-full px-4 py-2 border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-navy dark:text-white font-body"
+            placeholder="namn@exempel.se" />
+        </div>
+        <p id="inviteMsg" class="text-sm text-text-soft"></p>
+        <div class="flex gap-3 pt-2">
+          <button type="button" onclick="closeModal('inviteModal')"
+            class="flex-1 px-4 py-2 border border-gray-200 dark:border-gray-600 text-text-soft rounded-xl font-semibold hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
+            Avbryt
+          </button>
+          <button type="submit"
+            class="flex-1 px-4 py-2 bg-navy hover:bg-navy-soft text-white rounded-xl font-heading font-bold transition-colors dark:bg-gold dark:hover:bg-yellow-500">
+            Skicka inbjudan
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Toast notification -->
+  <div id="toast" class="fixed bottom-4 right-4 bg-navy text-white px-5 py-3 rounded-xl shadow-lg font-body font-medium hidden z-40"></div>
+
+  <script>
+    // ─── Auth guard ───────────────────────────────────────
+    if (!Auth.requireAuth()) { /* redirected */ }
+    const user = Auth.getUser();
+    document.getElementById('userEmail').textContent = user?.email || '';
+    if (user?.isAdmin) {
+      document.querySelector('a[href="/admin"]') || (document.querySelector('.space-y-2').innerHTML +=
+        '<li><a href="/admin" class="block px-4 py-2 text-white hover:bg-navy-soft rounded-lg transition-colors">Admin</a></li>');
+      // Show invite button (hidden by default) for admins
+      document.getElementById('inviteBtn').classList.remove('hidden');
+    }
+
+    document.getElementById('logoutBtn').addEventListener('click', () => { Auth.clearAuth(); window.location.href = '/login'; });
+
+    // ─── State ───────────────────────────────────────────
+    let familyData = null;
+    let familyChildren = [];
+
+    // ─── Init ────────────────────────────────────────────
+    async function init() {
+      try {
+        familyData = await Auth.api('/api/family');
+        renderAll(familyData);
+        initFamilyDnD();
+      } catch (err) {
+        showToast('Kunde inte ladda familjeinformation: ' + err.message, true);
+      }
+    }
+    init();
+
+    function renderAll(data) {
+      // Family info
+      const section = document.getElementById('familyInfoSection');
+      section.classList.remove('hidden');
+      document.getElementById('familyNameInput').value = data.name || '';
+      // Children
+      const children = data.children || [];
+      familyChildren = children;
+      const noChildren = document.getElementById('noChildrenState');
+      const childrenGrid = document.getElementById('childrenGrid');
+      const switcher = document.getElementById('childSwitcherTabs');
+      if (children.length === 0) {
+        noChildren.classList.remove('hidden');
+        childrenGrid.classList.add('hidden');
+        switcher.classList.add('hidden');
+      } else {
+        noChildren.classList.add('hidden');
+        childrenGrid.classList.remove('hidden');
+        childrenGrid.innerHTML = children.map(c => renderChildCard(c)).join('');
+        // Render child switcher tabs (visible when 2+ children)
+        if (children.length >= 2) {
+          switcher.classList.remove('hidden');
+          switcher.innerHTML = children.map(c => `
+            <button onclick="switchToChild('${c.id}')"
+              class="flex items-center gap-2 px-4 py-2 rounded-full border-2 font-semibold text-sm transition-colors border-lavender text-navy hover:border-gold hover:bg-gold-light dark:text-white dark:border-navy-soft dark:hover:border-gold">
+              ${c.emoji || '👤'} ${escHtml(c.name)}
+            </button>`).join('');
+        } else {
+          switcher.classList.add('hidden');
+        }
+      }
+
+      // Adults
+      const parents = data.parents || [];
+      const pending = data.pendingInvites || [];
+      const noAdults = document.getElementById('noAdultsState');
+      const adultsGrid = document.getElementById('adultsGrid');
+      if (parents.length === 0) {
+        noAdults.classList.remove('hidden');
+        adultsGrid.classList.add('hidden');
+      } else {
+        noAdults.classList.add('hidden');
+        adultsGrid.classList.remove('hidden');
+        adultsGrid.innerHTML = parents.map(p => renderAdultCard(p, children)).join('');
+      }
+
+      // Pending invites — only show for admins (regular parents use "Lägg till vuxen" instead)
+      const pendingSection = document.getElementById('pendingInvitesSection');
+      const pendingList = document.getElementById('pendingInvitesList');
+      if (user?.isAdmin && pending.length > 0) {
+        pendingSection.classList.remove('hidden');
+        pendingList.innerHTML = pending.map(inv => `
+          <div class="flex items-center justify-between bg-lavender dark:bg-navy-soft rounded-xl px-4 py-3">
+            <div>
+              <span class="font-medium text-navy dark:text-white">${inv.email}</span>
+              <span class="ml-2 text-xs text-text-soft italic">Väntar...</span>
+            </div>
+            <button onclick="withdrawInvite('${inv.id}')" class="text-xs text-red-500 hover:text-red-600 font-semibold">Återkalla</button>
+          </div>
+        `).join('');
+      } else {
+        pendingSection.classList.add('hidden');
+      }
+    }
+
+    // ─── Child card ──────────────────────────────────────
+    function renderChildCard(child) {
+      const ageText = child.birthday ? calculateAge(child.birthday) : null;
+      return `
+        <div class="bg-sky dark:bg-navy-soft rounded-2xl p-4 card-hover fade-in child-card-wrap relative" data-child-id="${child.id}">
+          <span class="drag-handle text-gray-300 text-lg select-none cursor-grab absolute top-3 right-3" title="Dra för att ändra ordning">⠿</span>
+          <div class="flex items-start justify-between mb-3">
+            <div class="flex items-center gap-2">
+              ${child.emoji ? `<span class="text-2xl">${child.emoji}</span>` : ''}
+              <div>
+                <p class="font-heading font-bold text-navy dark:text-white">${child.name}</p>
+                ${ageText ? `<p class="text-xs text-text-soft">${ageText}</p>` : ''}
+              </div>
+            </div>
+            <div class="flex items-center gap-1">
+              ${child.has_pin
+                ? '<span class="text-xs bg-mint text-green-700 px-2 py-0.5 rounded-full font-medium" title="PIN kod inställd">PIN ✅</span>'
+                : '<span class="text-xs bg-coral text-red-700 px-2 py-0.5 rounded-full font-medium" title="Ingen PIN kod">PIN ❌</span>'}
+            </div>
+          </div>
+
+
+          <!-- Allow child reorder toggle -->
+          <div class="flex items-center justify-between mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <div class="flex-1 pr-3">
+              <p class="text-xs font-semibold text-navy dark:text-white leading-tight">Tillåt barnet att ändra ordning</p>
+              <p class="text-xs text-text-soft mt-0.5">Barnet kan dra aktiviteter i sin dagvy</p>
+            </div>
+            <label class="relative inline-flex items-center cursor-pointer select-none">
+              <input type="checkbox" id="reorder-toggle-${child.id}"
+                class="sr-only peer"
+                ${child.allow_child_reorder ? 'checked' : ''}
+                onchange="toggleChildReorder('${child.id}', this.checked)" />
+              <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-gold/50 rounded-full peer dark:bg-gray-600 peer-checked:bg-gold transition-colors"></div>
+              <div class="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform peer-checked:translate-x-5 dark:bg-white pointer-events-none"></div>
+            </label>
+          </div>
+
+          <!-- Actions -->
+          <div class="flex gap-2 mt-3 pt-3 border-t border-gray-200 dark:border-gray-700">
+            <button onclick="openEditChildModal('${child.id}')"
+              class="flex-1 text-center px-3 py-1.5 bg-sky dark:bg-navy-soft border border-gray-200 dark:border-gray-600 text-navy dark:text-white text-xs rounded-lg font-medium hover:bg-lavender dark:hover:bg-gray-700 transition-colors">
+              Redigera
+            </button>
+            <button onclick="confirmDeleteChild('${child.id}', '${child.name.replace(/'/g, "\\'")}')"
+              class="px-3 py-1.5 bg-coral hover:bg-red-100 text-red-600 text-xs rounded-lg font-medium transition-colors">
+              Radera
+            </button>
+          </div>
+        </div>
+      `;
+    }
+
+    // ─── Adult card ─────────────────────────────────────
+    const ROLES = [
+      { value: '', label: '– Välj roll –' },
+      { value: 'mamma', label: 'Mamma' },
+      { value: 'pappa', label: 'Pappa' },
+      { value: 'bonusförälder', label: 'Bonusförälder' },
+      { value: 'annan', label: 'Annan' },
+    ];
+
+    function renderAdultCard(parent, children) {
+      const isSelf = parent.id === user?.id;
+      const isOnlyAdult = (familyData.parents || []).length === 1;
+      const canDelete = !isOnlyAdult && !isSelf;
+      const roleOptions = ROLES.map(r =>
+        `<option value="${r.value}" ${parent.family_role === r.value ? 'selected' : ''}>${r.label}</option>`
+      ).join('');
+
+      return `
+        <div class="bg-sky dark:bg-navy-soft rounded-2xl p-4 card-hover fade-in">
+          <div class="flex items-start justify-between mb-3">
+            <div>
+              <p class="font-heading font-bold text-navy dark:text-white">${parent.name || 'Förälder'}</p>
+              <p class="text-sm text-text-soft">${parent.email}</p>
+              ${isSelf ? '<span class="inline-block mt-1 text-xs bg-gold-light text-gold px-2 py-0.5 rounded-full font-medium">Du</span>' : ''}
+            </div>
+          </div>
+
+          <!-- Role -->
+          <div class="mb-3">
+            <label class="block text-xs text-text-soft mb-1">Roll</label>
+            <select onchange="updateMemberRole('${parent.id}', this.value)"
+              class="w-full px-3 py-1.5 border border-gray-200 dark:border-gray-600 rounded-lg bg-white dark:bg-navy dark:text-white text-sm font-body">
+              ${roleOptions}
+            </select>
+          </div>
+
+          <!-- Child visibility -->
+          ${(familyData.allChildren || []).length > 0 ? `
+            <div class="mb-3">
+              <label class="block text-xs text-text-soft mb-1">Ser dessa barn</label>
+              <div class="space-y-1">
+                ${(familyData.allChildren || []).map(c => {
+                  const linked = (parent.linked_child_ids || []).includes(c.id);
+                  return `<label class="flex items-center gap-2 text-sm cursor-pointer">
+                    <input type="checkbox" class="pc-cb w-4 h-4 rounded border-lavender text-gold focus:ring-gold"
+                      data-parent-id="${parent.id}" data-child-id="${c.id}" ${linked ? 'checked' : ''}
+                      onchange="updateParentChildren('${parent.id}')">
+                    ${c.emoji || '👤'} ${c.name}
+                  </label>`;
+                }).join('')}
+              </div>
+            </div>
+          ` : ''}
+
+          <!-- Delete -->
+          ${canDelete ? `
+            <div class="pt-3 border-t border-gray-200 dark:border-gray-700">
+              <button onclick="confirmDeleteMember('${parent.id}', '${(parent.name || 'Förälder').replace(/'/g, "\\'")}')"
+                class="w-full px-3 py-1.5 bg-coral hover:bg-red-100 text-red-600 text-xs rounded-lg font-medium transition-colors">
+                Ta bort från familj
+              </button>
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+
+    // ─── Actions ─────────────────────────────────────────
+    async function saveFamily() {
+      const name = document.getElementById('familyNameInput').value.trim();
+      const msg = document.getElementById('familySaveMsg');
+      try {
+        const result = await Auth.api('/api/family', {
+          method: 'PUT',
+          body: JSON.stringify({ name }),
+        });
+        msg.textContent = '✓ Sparat!';
+        msg.classList.remove('hidden');
+        setTimeout(() => msg.classList.add('hidden'), 2000);
+      } catch (err) {
+        showToast('Kunde inte spara: ' + err.message, true);
+      }
+    }
+
+    async function updateParentChildren(parentId) {
+      const checkboxes = document.querySelectorAll(`.pc-cb[data-parent-id="${parentId}"]`);
+      const childIds = [...checkboxes].filter(cb => cb.checked).map(cb => cb.dataset.childId);
+      if (childIds.length === 0) {
+        showToast('Minst ett barn måste väljas', true);
+        // Re-check at least one box
+        checkboxes[0].checked = true;
+        return;
+      }
+      try {
+        await Auth.api(`/api/family/members/${parentId}/children`, {
+          method: 'PUT',
+          body: JSON.stringify({ childIds }),
+        });
+        showToast('Barnkopplingar uppdaterade!');
+      } catch (err) {
+        showToast('Kunde inte uppdatera: ' + err.message, true);
+        init(); // Re-fetch state
+      }
+    }
+
+    async function updateMemberRole(parentId, familyRole) {
+      try {
+        await Auth.api(`/api/family/members/${parentId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ family_role: familyRole }),
+        });
+        showToast('Roll uppdaterad!');
+      } catch (err) {
+        showToast('Kunde inte uppdatera roll: ' + err.message, true);
+      }
+    }
+
+    async function addAdult(e) {
+      e.preventDefault();
+      const name = document.getElementById('addAdultNameInput').value.trim();
+      const email = document.getElementById('addAdultEmailInput').value.trim();
+      const password = document.getElementById('addAdultPasswordInput').value;
+      const msg = document.getElementById('addAdultMsg');
+      try {
+        const result = await Auth.api('/api/family/add-parent', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, password }),
+        });
+        msg.textContent = '✓ Konto skapat för ' + result.parent.email + '!';
+        msg.className = 'text-sm text-green-600 font-medium';
+        document.getElementById('addAdultNameInput').value = '';
+        document.getElementById('addAdultEmailInput').value = '';
+        document.getElementById('addAdultPasswordInput').value = '';
+        setTimeout(() => {
+          closeModal('addAdultModal');
+          init();
+        }, 2000);
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = 'text-sm text-red-500 font-medium';
+      }
+    }
+
+    async function sendInvite(e) {
+      e.preventDefault();
+      const email = document.getElementById('inviteEmailInput').value.trim();
+      const msg = document.getElementById('inviteMsg');
+      try {
+        await Auth.api('/api/family/invite', {
+          method: 'POST',
+          body: JSON.stringify({ email }),
+        });
+        msg.textContent = '✓ Inbjudan skickad!';
+        msg.className = 'text-sm text-green-600 font-medium';
+        document.getElementById('inviteEmailInput').value = '';
+        setTimeout(() => {
+          closeModal('inviteModal');
+          init();
+        }, 1500);
+      } catch (err) {
+        msg.textContent = err.message;
+        msg.className = 'text-sm text-red-500 font-medium';
+      }
+    }
+
+    async function withdrawInvite(inviteId) {
+      try {
+        await Auth.api(`/api/family/invite/${inviteId}`, { method: 'DELETE' });
+        showToast('Inbjudan återkallad');
+        init();
+      } catch (err) {
+        showToast('Kunde inte återkalla: ' + err.message, true);
+      }
+    }
+
+    // Delete child
+    let pendingDeleteType = null;
+    let pendingDeleteId = null;
+
+    function confirmDeleteChild(id, name) {
+      pendingDeleteType = 'child';
+      pendingDeleteId = id;
+      document.getElementById('deleteTargetName').textContent = name;
+      document.getElementById('deleteTargetMessage').textContent = 'Alla aktiviteter, scheman och belöningshistorik för detta barn kommer att raderas permanent.';
+      document.getElementById('confirmDeleteBtn').onclick = executeDelete;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    async function toggleChildReorder(childId, allow) {
+      try {
+        await Auth.api(`/api/children/${childId}`, {
+          method: 'PUT',
+          body: JSON.stringify({ allow_child_reorder: allow }),
+        });
+      } catch (err) {
+        showToast('Kunde inte spara inställningen', true);
+      }
+    }
+
+    function confirmDeleteMember(id, name) {
+      pendingDeleteType = 'member';
+      pendingDeleteId = id;
+      document.getElementById('deleteTargetName').textContent = name;
+      document.getElementById('deleteTargetMessage').textContent = 'Denna person kommer att tas bort från din familj. De kan fortfarande logga in med sitt konto.';
+      document.getElementById('confirmDeleteBtn').onclick = executeDelete;
+      document.getElementById('deleteModal').classList.remove('hidden');
+    }
+
+    async function executeDelete() {
+      try {
+        if (pendingDeleteType === 'child') {
+          await Auth.api(`/api/family/children/${pendingDeleteId}`, { method: 'DELETE' });
+        } else {
+          await Auth.api(`/api/family/members/${pendingDeleteId}`, { method: 'DELETE' });
+        }
+        closeModal('deleteModal');
+        showToast('Borttaget');
+        init();
+      } catch (err) {
+        showToast('Kunde inte ta bort: ' + err.message, true);
+      }
+    }
+
+    // ─── Emoji picker handlers ──────────────────────────────
+    let addSelectedEmoji = '';
+    let editSelectedEmoji = '';
+
+    document.querySelectorAll('.add-emoji-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.add-emoji-opt').forEach(b => b.classList.remove('border-gold', 'bg-gold-light'));
+        btn.classList.add('border-gold', 'bg-gold-light');
+        addSelectedEmoji = btn.dataset.emoji;
+        document.getElementById('childEmojiInput').value = addSelectedEmoji;
+        document.getElementById('addEmojiError').classList.add('hidden');
+      });
+    });
+
+    document.querySelectorAll('.edit-emoji-opt').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.edit-emoji-opt').forEach(b => b.classList.remove('border-gold', 'bg-gold-light'));
+        btn.classList.add('border-gold', 'bg-gold-light');
+        editSelectedEmoji = btn.dataset.emoji;
+        document.getElementById('editChildEmojiInput').value = editSelectedEmoji;
+      });
+    });
+
+    // Add child
+    async function addChild(e) {
+      e.preventDefault();
+      const name = document.getElementById('childNameInput').value.trim();
+      const emoji = document.getElementById('childEmojiInput').value || addSelectedEmoji;
+      const birthday = document.getElementById('childBirthdayInput').value;
+
+      if (!emoji) {
+        document.getElementById('addEmojiError').classList.remove('hidden');
+        return;
+      }
+
+      try {
+        await Auth.api('/api/children', {
+          method: 'POST',
+          body: JSON.stringify({ name, emoji, birthday: birthday || undefined }),
+        });
+        closeModal('addChildModal');
+        document.getElementById('addChildForm').reset();
+        addSelectedEmoji = '';
+        document.querySelectorAll('.add-emoji-opt').forEach(b => b.classList.remove('border-gold', 'bg-gold-light'));
+        showToast('Barn tillagt!');
+        init();
+      } catch (err) {
+        showToast('Kunde inte lägga till barn: ' + err.message, true);
+      }
+    }
+
+    // Edit child
+    async function openEditChildModal(childId) {
+      try {
+        const child = await Auth.api('/api/children/' + childId);
+        document.getElementById('editChildId').value = child.id;
+        document.getElementById('editChildNameInput').value = child.name || '';
+        document.getElementById('editChildBirthdayInput').value = child.birthday ? child.birthday.split('T')[0] : '';
+        document.getElementById('editChildPinInput').value = '';
+        // Pre-select emoji in picker
+        editSelectedEmoji = child.emoji || '';
+        document.getElementById('editChildEmojiInput').value = editSelectedEmoji;
+        document.querySelectorAll('.edit-emoji-opt').forEach(b => {
+          b.classList.remove('border-gold', 'bg-gold-light');
+          if (b.dataset.emoji === editSelectedEmoji) b.classList.add('border-gold', 'bg-gold-light');
+        });
+        document.getElementById('editChildModal').classList.remove('hidden');
+      } catch (err) {
+        showToast('Kunde inte hämta barnets uppgifter: ' + err.message, true);
+      }
+    }
+
+    async function saveEditChild(e) {
+      e.preventDefault();
+      const childId = document.getElementById('editChildId').value;
+      const name = document.getElementById('editChildNameInput').value.trim();
+      const emoji = document.getElementById('editChildEmojiInput').value.trim();
+      const birthday = document.getElementById('editChildBirthdayInput').value;
+      const pin = document.getElementById('editChildPinInput').value.trim();
+
+      try {
+        // Update child info
+        await Auth.api('/api/children/' + childId, {
+          method: 'PUT',
+          body: JSON.stringify({ name, emoji, birthday: birthday || undefined }),
+        });
+
+        // Update PIN if provided
+        if (pin) {
+          if (!/^\d{4}$/.test(pin)) {
+            showToast('PIN-koden måste vara exakt 4 siffror', true);
+            return;
+          }
+          await Auth.api('/api/children/' + childId + '/pin', {
+            method: 'PUT',
+            body: JSON.stringify({ pin }),
+          });
+        }
+
+        closeModal('editChildModal');
+        showToast('Barn uppdaterat!');
+        init();
+      } catch (err) {
+        showToast('Kunde inte uppdatera: ' + err.message, true);
+      }
+    }
+
+    // ─── Helpers ─────────────────────────────────────────
+    function closeModal(id) {
+      document.getElementById(id).classList.add('hidden');
+    }
+
+    // ─── Family Children Drag & Drop (sortablejs) ───────
+    let familySortable = null;
+
+    function initFamilyDnD() {
+      if (typeof Sortable === 'undefined') return;
+      const grid = document.getElementById('childrenGrid');
+      if (!grid || familyChildren.length < 2) {
+        if (familySortable) { familySortable.destroy(); familySortable = null; }
+        return;
+      }
+      if (familySortable) familySortable.destroy();
+      familySortable = Sortable.create(grid, {
+        animation: 150,
+        handle: '.drag-handle',
+        forceFallback: true, // use SortableJS touch/mouse polyfill instead of native DnD (mobile required)
+        ghostClass: 'sortable-ghost',
+        chosenClass: 'sortable-chosen',
+        onEnd: async function(evt) {
+          const order = [];
+          grid.querySelectorAll('[data-child-id]').forEach((el, idx) => {
+            order.push({ id: el.dataset.childId, sort_order: idx });
+          });
+          // Optimistic update
+          const prevChildren = familyChildren.slice();
+          familyChildren = order.map(({ id, sort_order }) => {
+            const c = prevChildren.find(x => x.id === id) || {};
+            return { ...c, id, sort_order };
+          });
+          // Re-render without full reload
+          const children = familyChildren;
+          const noChildren = document.getElementById('noChildrenState');
+          const childrenGrid = document.getElementById('childrenGrid');
+          if (children.length === 0) {
+            noChildren.classList.remove('hidden');
+            childrenGrid.classList.add('hidden');
+          } else {
+            noChildren.classList.add('hidden');
+            childrenGrid.classList.remove('hidden');
+            childrenGrid.innerHTML = children.map(c => renderChildCard(c)).join('');
+            // Re-init sortable after re-render
+            initFamilyDnD();
+          }
+          // Persist
+          try {
+            await Auth.api('/api/children/reorder', {
+              method: 'PUT',
+              body: JSON.stringify({ order }),
+            });
+          } catch (err) {
+            // Rollback
+            familyChildren = prevChildren;
+            renderAll({ ...familyData, children: prevChildren });
+            initFamilyDnD();
+            showToast('Kunde inte spara ordningen', true);
+          }
+        },
+      });
+    }
+
+    function escHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    function switchToChild(childId) {
+      // Scroll to and highlight the child's card, then open the edit modal
+      const card = document.querySelector(`.child-card-wrap[data-child-id="${childId}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        card.style.boxShadow = '0 0 0 3px #F5A623';
+        setTimeout(() => { card.style.boxShadow = ''; }, 1500);
+      }
+      openEditChildModal(childId);
+    }
+
+    function showToast(msg, isError = false) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.background = isError ? '#EF4444' : '#1B2340';
+      toast.classList.remove('hidden');
+      setTimeout(() => toast.classList.add('hidden'), 3000);
+    }
+
+    function calculateAge(birthday) {
+      const birth = new Date(birthday);
+      const today = new Date();
+      let years = today.getFullYear() - birth.getFullYear();
+      const monthDiff = today.getMonth() - birth.getMonth();
+      if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) years--;
+      if (years < 1) {
+        const months = (today.getFullYear() - birth.getFullYear()) * 12 + (today.getMonth() - birth.getMonth());
+        return months + ' månader';
+      }
+      return years + ' år';
+    }
+
+    // ─── Mobile sidebar toggle ────────────────────────────
+    const menuToggle = document.getElementById('menuToggle');
+    const sidebar = document.getElementById('sidebar');
+    if (menuToggle) {
+      menuToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('hidden');
+      });
+    }
+
+    // ─── Today label ──────────────────────────────────────
+    const today = new Date().toLocaleDateString('sv-SE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
+    const todayLabel = document.getElementById('todayLabel');
+    if (todayLabel) todayLabel.textContent = today.charAt(0).toUpperCase() + today.slice(1);
+  </script>
+
+  <!-- Feedback Modal -->
+  <div id="feedbackModal" class="hidden fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+    <div class="bg-white dark:bg-navy-soft rounded-2xl p-6 w-full max-w-md shadow-2xl">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-lg font-heading font-bold text-navy dark:text-white">💬 Ge feedback</h3>
+        <button onclick="closeFeedbackModal()" class="text-text-soft hover:text-navy dark:hover:text-white p-1 rounded-lg transition-colors">✕</button>
+      </div>
+      <form id="feedbackForm" class="space-y-4">
+        <div class="flex gap-3">
+          <label class="flex items-center gap-2 cursor-pointer flex-1 p-3 rounded-xl border-2 border-lavender hover:border-gold transition-colors">
+            <input type="radio" name="feedbackType" value="bug" checked class="accent-gold">
+            <span class="font-semibold text-sm text-navy dark:text-white">🐛 Rapportera problem</span>
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer flex-1 p-3 rounded-xl border-2 border-lavender hover:border-gold transition-colors">
+            <input type="radio" name="feedbackType" value="suggestion" class="accent-gold">
+            <span class="font-semibold text-sm text-navy dark:text-white">💡 Föreslå förbättring</span>
+          </label>
+        </div>
+        <input type="text" id="feedbackTitle" placeholder="Rubrik" required maxlength="100"
+          class="w-full px-4 py-3 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors dark:bg-navy dark:text-white dark:border-navy-soft">
+        <textarea id="feedbackMessage" placeholder="Beskriv problemet eller förbättringsförslaget..." required rows="4"
+          class="w-full px-4 py-3 border-2 border-lavender rounded-xl text-sm focus:border-gold outline-none transition-colors resize-none dark:bg-navy dark:text-white dark:border-navy-soft"></textarea>
+        <div id="feedbackMsg" class="text-sm min-h-[1.2em]"></div>
+        <div class="flex gap-3">
+          <button type="button" onclick="closeFeedbackModal()"
+            class="flex-1 py-3 bg-lavender hover:bg-sky text-navy rounded-xl font-semibold transition-colors text-sm">Avbryt</button>
+          <button type="submit" id="feedbackSubmitBtn"
+            class="flex-1 py-3 bg-gold hover:bg-yellow-500 text-white rounded-xl font-heading font-bold transition-colors text-sm">Skicka</button>
+        </div>
+      </form>
+    </div>
+  </div>
+  <script>
+  function openFeedbackModal() {
+    document.getElementById('feedbackModal').classList.remove('hidden');
+    document.getElementById('feedbackMsg').textContent = '';
+    document.getElementById('feedbackMsg').className = 'text-sm';
+    document.getElementById('feedbackTitle').value = '';
+    document.getElementById('feedbackMessage').value = '';
+  }
+  function closeFeedbackModal() {
+    document.getElementById('feedbackModal').classList.add('hidden');
+  }
+  document.getElementById('feedbackForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const btn = document.getElementById('feedbackSubmitBtn');
+    const msg = document.getElementById('feedbackMsg');
+    const type = document.querySelector('input[name="feedbackType"]:checked')?.value || 'bug';
+    const title = document.getElementById('feedbackTitle').value.trim();
+    const message = document.getElementById('feedbackMessage').value.trim();
+    if (!title || !message) { msg.textContent = 'Fyll i alla fält'; msg.className = 'text-sm text-red-500'; return; }
+    btn.disabled = true; btn.textContent = 'Skickar...';
+    try {
+      const data = await Auth.api('/api/feedback', { method: 'POST', body: JSON.stringify({ type, title, message }) });
+      msg.textContent = data.message || 'Tack för din feedback!';
+      msg.className = 'text-sm text-green-600';
+      setTimeout(() => closeFeedbackModal(), 2000);
+    } catch (err) {
+      msg.textContent = err.message || 'Fel uppstod';
+      msg.className = 'text-sm text-red-500';
+    }
+    btn.disabled = false; btn.textContent = 'Skicka';
+  });
+  </script>
+</body>
+</html>
